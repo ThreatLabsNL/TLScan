@@ -591,7 +591,7 @@ def removeFromCipherList(cipherList, cipher):
 def reachable(host, port): # a quick reachability check
 	reachable = True
 	try:
-		conn = socket.create_connection((host, int(port)), 3)
+		conn = socket.create_connection((host, int(port)), 1)
 		conn.close()
 		reachable = True
 	except:
@@ -604,7 +604,6 @@ def banner():
 	return "============================================\nTLS/SSL Cipher Scanner\n============================================"
 
 def enumProtocols():
-	global vuln
 	global supportedProtocols
 	supportedProtocols = []
 	protocols = ["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1.0", "SSLv3", "SSLv2"] # High to low 
@@ -700,7 +699,6 @@ def processTarget(target, internal = False):
 			print "    [e] The service does not appear to be supporting SSL/TLS using current settings"
 
 def main():
-	global vulncheck
 	try:
 		usage = 'usage: %prog [ options ]'
 		version = 'V0.2 by M.H. Jansen of Lorkeers'
