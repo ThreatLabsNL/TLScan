@@ -737,7 +737,7 @@ def main():
 			parser.print_usage()
 			sys.exit(0)
 	except KeyboardInterrupt:
-		print Icon.warn+" Received termination signal, exiting!"
+		print Icon.info + " Received termination signal, exiting!"
 		sys.exit(3)
 
 
