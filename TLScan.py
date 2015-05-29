@@ -672,31 +672,36 @@ def enumCiphers(protocol):
 
 def processTarget(target, internal = False):
 	global tls
-	if not re.match(r'^.*[:]+[0-9]$', target):
-		target = target + ":443"
-		print Icon.info+" No port specified, trying a default one (443)."
-	host = target.split(':')
-	if not internal:
-		print Icon.info+" Processing target: %s, port %s..." %(host[0], host[1])
-	if reachable(host[0], host[1]):
-		tls = TLS(host[0], host[1])
-		if not internal:
-			print "===============- "+CliColors.title+"Protocols"+CliColors.endc+" -================"
-			print "[+] Supported encryption protocols:"
-		protocols = enumProtocols()
-		if protocols:
-			print "================- "+CliColors.title+"Ciphers"+CliColors.endc+" -================="
-			for p in protocols:
-				print "[+] Supported cipher suites for: %s" %p
-				if p == 'SSLv2': # Special case for SSL2
-					cipherList = tls.ssl2Ciphers()
-				else:
-					cipherList = tls.tlsCiphers()
-				supportedCiphers = enumCiphers(p)
-				for c in supportedCiphers:
-					print "    [-] "+cipherList[c] # Print cipher
-		else:
-			print "    [e] The service does not appear to be supporting SSL/TLS using current settings"
+	if not re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|\
+                    1[0-9]{2}|2[0-4][0-9]|25[0-4])($|:([0-9]{1,4}|[1-5][0-9][0-9][0-9][0-9]|\
+                    6[0-4][0-9][0-9][0-9]|6[0-5][0-5][0-3][0-5]))$", target):
+		if re.match("^(([a-zA-Z0-9-.]|[a-z][a-z0-9]-.)*)([a-zA-Z0-9])($|:([1-9]{1,4}|[1-5][0-9][0-9][0-9][0-9]|\
+                    6[0-4][0-9][0-9][0-9]|6[0-5][0-5][0-3][0-5]))$", target):
+			if not re.search(r'[:*]', target):
+				print Icon.info+" No port specified, trying a default one (443)."
+				target = target+':443'
+			host = target.split(':')
+			if not internal:
+				print Icon.info+" Processing target: %s, port %s..." %(host[0], host[1])
+				if reachable(host[0], host[1]):
+					tls = TLS(host[0], host[1])
+				if not internal:
+					print "===============- "+CliColors.title+"Protocols"+CliColors.endc+" -================"
+					print "[+] Supported encryption protocols:"
+				protocols = enumProtocols()
+				if protocols:
+					print "================- "+CliColors.title+"Ciphers"+CliColors.endc+" -================="
+				for p in protocols:
+					print "[+] Supported cipher suites for: %s" %p
+					if p == 'SSLv2': # Special case for SSL2
+						cipherList = tls.ssl2Ciphers()
+					else:
+						cipherList = tls.tlsCiphers()
+						supportedCiphers = enumCiphers(p)
+					for c in supportedCiphers:
+						print "    [-] "+cipherList[c] # Print cipher
+			else:
+				print "    [e] The service does not appear to be supporting SSL/TLS using current settings"
 
 def main():
 	try:
