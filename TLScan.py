@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Public release V0.1 by M.H. Jansen of Lorkeers
+# Public release V0.2 by M.H. Jansen of Lorkeers
 #
 # The MIT License (MIT)
 # 
@@ -42,8 +42,11 @@ class CliColors:
 	endc = '\033[0m'
 
 class Icon:
+	error = "[e]"
 	info = "["+CliColors.green+"i"+CliColors.endc+"]"
 	norm = "[-]"
+	plus = "[+]"
+	warn = "[!]"
 
 class TLS:	
 	def __init__(self, host = "", port = 0):
@@ -408,7 +411,7 @@ class TLS:
 		#cipher['\xFE\xFF'] = 'SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA'
 		#cipher['\xFF\xE0'] = 'SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA'
 		#cipher['\xFF\xE1'] = 'SSL_RSA_FIPS_WITH_DES_CBC_SHA'
-		# Special one: Don't enable as it will prevent using older protocol versions than the server's latest
+		# Special one to indicate client's support for downgrade prevention
 		#cipher['\x56\x00'] = 'TLS_FALLBACK_SCSV'
 		return cipher
 	
@@ -465,7 +468,7 @@ class TLS:
 			handshake += compression
 			return record+handshake
 		else:
-			print "Error in cipher length!"
+			print "%s Error in cipher length!" %Icon.error
 			sys.exit(2)
 	
 	def doClientHello(self, protocol, cipher = 0):
@@ -490,47 +493,45 @@ class TLS:
 						else:
 							buffer += more
 					response = buffer
-				else:
-					response = False
 			else: # SSLv3 and all TLS versions
 				helloMsg = self.tlsHello(protocol, cipher)
 				self.TCP.sendall(helloMsg)
 				buffer = self.TCP.recv(1024)
+				#print buffer.encode('hex')
 				if buffer:
-					buffering = True
-					while buffering:
-						if self.serverHelloDone in buffer: 
-							buffering = False
-							break
-						more = self.TCP.recv(1024)
-						if not more:
-							buffering = False
-						else:
-							buffer += more
-					response = buffer
-				else:
-					response = False
-				#print response
+					if not self.contentType(buffer)[0] == 'alert' and not self.contentType(buffer)[1] == 'handshake_failure':
+						buffering = True
+						while buffering:
+							if self.serverHelloDone in buffer: 
+								buffering = False
+								break
+							more = self.TCP.recv(1024)
+							if not more:
+								buffering = False
+							else:
+								buffer += more
+						response = buffer
 		except socket.error as e:
 			if e.errno == 54:
 				response = False 
 			elif e.errno == 61:
 				repsponse = False
 			else:
-				print "An error occurred while connecting!"
+				print "    %s The connection probably timed out due to unexpected response"  %Icon.error
 		return response
 	
 	def connect(self):
 		try:
 			self.TCP = socket.create_connection((self.host, int(self.port)), 5)
+			return self.TCP
 		except:
-			print "[!] Unable to connect to remote host, please check it is up"
+			print "%s Unable to connect to remote host, please check it is up" %Icon.warn
 			pass
 	
 	def closeConnection(self):
 		self.TCP.close()
 	
-	def getContentType(self, response):
+	def contentType(self, response):
 		response = bytearray(response)
 		if int(response[0]) == 22:
 			contentType = 'handshake'
@@ -566,14 +567,14 @@ class TLS:
 		else:
 			return ('not_implemented', 'not_implemented')
 	
-	def getResponseProtocol(self, response): # For SSLv3 and TLS1.#
+	def responseProtocol(self, response): # For SSLv3 and TLS1.#
 		response = bytearray(response)
 		protocol = response[1:3]
 		for p in self.protocols:
 			if self.protocols[p] == protocol:
 				return p
 	
-	def getServerHelloCipher(self, response):
+	def serverHelloCipher(self, response):
 		if struct.unpack('!b', response[0:1])[0] == 22 and struct.unpack('!b', response[5:6])[0] == 2:
 			start = (struct.unpack('!b', response[43:44])[0] + 44)
 			cipher = response[start:start+2]
@@ -581,7 +582,6 @@ class TLS:
 		else:
 			return ""
 	
-
 
 
 def removeFromCipherList(cipherList, cipher):
@@ -593,12 +593,40 @@ def reachable(host, port): # a quick reachability check
 	try:
 		conn = socket.create_connection((host, int(port)), 1)
 		conn.close()
-		reachable = True
 	except:
-		print "[e] An error occurred while connecting, skipping service/target"
+		print "%s An error occurred while connecting, skipping service/target" %Icon.error
 		reachable = False
 		pass # prevent from dying
 	return reachable
+
+def doPreamble(sock, preamble):
+	sequenceComplete = False
+	if not preamble == None:
+		try:
+			if preamble == "ftp": # http://tools.ietf.org/html/rfc4217
+				buffer = sock.recv(50)
+				welcome = False
+				while not welcome: # the humor
+					if re.search(r'^220 .*?\n$', buffer, re.MULTILINE):
+						welcome = True
+						break
+					more = sock.recv(50)
+					if not more:
+						print "%s Did not receive a complete FTP welcome message" %Icon.error
+						break
+					else:
+						buffer += more
+				if welcome:
+					sock.send("AUTH TLS\r\n")
+					response = sock.recv(100)
+					if "234 " in response: # AUTH TLS Command Successful
+						sequenceComplete = True
+		except socket.timeout:
+			pass 
+		return sequenceComplete
+	else:
+		print "%s No preamble was set!" %Icon.error
+
 
 def banner():
 	return "============================================\nTLS/SSL Cipher Scanner\n============================================"
@@ -608,19 +636,22 @@ def enumProtocols():
 	supportedProtocols = []
 	protocols = ["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1.0", "SSLv3", "SSLv2"] # High to low 
 	for p in protocols: 
-		tls.connect() # first connect
+		sock = tls.connect() # first connect, now a socket is returned
+		if preamble: # do preamble if required
+			if not doPreamble(sock, preamble):
+				break # prevent sending the clientHello if preamble failed
 		response = tls.doClientHello(p) # then send hello
 		if response:
 			if p == 'SSLv2':
 				if bytearray(response)[2] == 4:
 					supportedProtocols.append(p)
-					print Icon.norm+" %s" %p
+					print "%s %s" %(Icon.norm, p)
 			else:
-				responseProtocol = tls.getResponseProtocol(response)
-				contentType = tls.getContentType(response)
+				responseProtocol = tls.responseProtocol(response)
+				contentType = tls.contentType(response)
 				if (contentType[0] == 'handshake' and contentType[1] == 'server_hello') and (responseProtocol == p):
 					supportedProtocols.append(p)
-					print "    "+Icon.norm+" Remote service supports: %s" %p 
+					print "    %s Remote service supports: %s" %(Icon.norm, p)
 		tls.closeConnection()
 	return supportedProtocols
 
@@ -628,7 +659,9 @@ def enumCiphers(protocol):
 	supportedCiphers = Set()
 	if protocol == 'SSLv2':
 		cipherList = tls.ssl2Ciphers()
-		tls.connect()
+		sock = tls.connect()
+		if preamble:
+			doPreamble(sock, preamble)
 		response = tls.doClientHello(protocol, cipherList)
 		if response:
 			cert_len = struct.unpack('!H', response[7:9])[0]
@@ -638,19 +671,21 @@ def enumCiphers(protocol):
 			for cipher in chunks(cipher_spec, 3):
 				supportedCiphers.add(cipher)
 		else:
-			print "    [e] No server hello received for SSLv2! (check client hello)"
+			print "    %s No server hello received for SSLv2! (check client hello)" %Icon.error
 		tls.closeConnection()
 	else:
 		cipherList = tls.tlsCiphers()
 	serverHelloCipher = 1
 	while serverHelloCipher > 0:
 		for c in tls.tlsCiphers():
-			tls.connect()
+			sock = tls.connect()
+			if preamble:
+				doPreamble(sock, preamble)
 			response = tls.doClientHello(protocol, cipherList)
 			if response:
-				contentType = tls.getContentType(response)
+				contentType = tls.contentType(response)
 				if contentType[0] == 'handshake' and contentType[1] == 'server_hello':
-					helloCipher = tls.getServerHelloCipher(response)
+					helloCipher = tls.serverHelloCipher(response)
 					if helloCipher != "":
 						if helloCipher in supportedCiphers:
 							serverHelloCipher = 0
@@ -670,7 +705,7 @@ def enumCiphers(protocol):
 			tls.closeConnection()
 	return supportedCiphers
 
-def processTarget(target, internal = False):
+def processTarget(target, internal=False):
 	global tls
 	if not re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|\
 					1[0-9]{2}|2[0-4][0-9]|25[0-4])($|:([0-9]{1,4}|[1-5][0-9][0-9][0-9][0-9]|\
@@ -680,67 +715,76 @@ def processTarget(target, internal = False):
           	         		 6[0-4][0-9][0-9][0-9]|6[0-5][0-5][0-3][0-5]))$", target):
 
 			if not re.search(r'[:*]', target):
-				target = target + ":443"
-				print Icon.info+" No port specified, trying a default one (443)."
+				target = target+":" + "%i"%dport
+				print "%s No port specified, trying a default one (%i)."%(Icon.info,dport)
 			host = target.split(':')
 			if not internal:
-				print Icon.info+" Processing target: %s, port %s..." %(host[0], host[1])
+				print "%s Processing target: %s, port %s..." %(Icon.info,host[0], host[1])
+				if not preamble == None:
+					print "%s %s set as application layer" %(Icon.info, preamble.upper())
 			if reachable(host[0], host[1]):
 				tls = TLS(host[0], host[1])
 				if not internal:
 					print "===============- "+CliColors.title+"Protocols"+CliColors.endc+" -================"
-					print "[+] Supported encryption protocols:"
+					print "%s Supported encryption protocols:"%Icon.plus
 				protocols = enumProtocols()
 				if protocols:
 					print "================- "+CliColors.title+"Ciphers"+CliColors.endc+" -================="
 					for p in protocols:
-						print "[+] Supported cipher suites for: %s" %p
+						print "%s Supported cipher suites for: %s" %(Icon.plus,p)
 						if p == 'SSLv2': # Special case for SSL2
 							cipherList = tls.ssl2Ciphers()
 						else:
 							cipherList = tls.tlsCiphers()
 							supportedCiphers = enumCiphers(p)
 						for c in supportedCiphers:
-							print "    [-] "+cipherList[c] # Print cipher
+							print "    %s %s" %(Icon.norm, cipherList[c]) # Print Cipher
 				else:
-					print "    [e] The service does not appear to be supporting SSL/TLS using current settings"
+					print "    %s The service does not appear to be supporting SSL/TLS using current settings" %Icon.error
 		else:
-			print "[e] %s it not a valid target!"%target
+			print "%s %s it not a valid target!"%(target,Icon.error)
 
 def main():
+	global preamble
+	global dport
+	dport = 443
 	try:
-		usage = 'usage: %prog [ options ]'
+		usage = 'usage: %prog -t <host>:<port> [ options ]'
 		version = 'V0.2 by M.H. Jansen of Lorkeers'
 		parser = OptionParser(usage=usage, version=version)
 		parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. 10.10.10.1:443", dest="target")
 		parser.add_option("-f", "--file", type="string", help="Specify target input file.", dest="file")
+		parser.add_option("--ftp", action="store_true", help="Use FTP protocol layer for FTPS", dest="ftp")
 		(options, args) = parser.parse_args()
 		target = options.target
 		targetfile = options.file
-
+		if options.ftp:
+			preamble = 'ftp'
+			dport = 21
+		else:
+			preamble = None
+		
 		print banner()
 		if target:
 			processTarget(target)
 		elif targetfile:
 			print "Processing file..."
 			if os.path.isfile(targetfile): # file needs to exist
+				print "%s Input file does not exist!" %Icon.error
+				sys.exit(2)
+			else: 
 				with open(targetfile, 'r') as file:
 					lines = (line.rstrip() for line in file)
 					lines = (line for line in lines if line)
 					for line in lines:
 						target = line.strip('\n')
 						processTarget(target)
-			else: 
-				print "[e] Input file does not exist!"
-				sys.exit(2)
 		else:
 			parser.print_usage()
 			sys.exit(0)
 	except KeyboardInterrupt:
-		print Icon.info + " Received termination signal, exiting!"
+		print "%s Received termination signal, exiting!" %Icon.warn
 		sys.exit(3)
-
-
 
 if __name__ == '__main__':
 	main()
