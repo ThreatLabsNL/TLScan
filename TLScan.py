@@ -680,6 +680,8 @@ def enumProtocols():
 				if (contentType[0] == 'handshake' and contentType[1] == 'server_hello') and (responseProtocol == p):
 					supportedProtocols.append(p)
 					print "    %s Remote service supports: %s" %(Icon.norm, p)
+		else:
+			print "No response recieved"
 		tls.closeConnection()
 	return supportedProtocols
 
