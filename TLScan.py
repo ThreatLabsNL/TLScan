@@ -798,17 +798,17 @@ def main():
 		if target:
 			processTarget(target)
 		elif targetfile:
-			print "Processing file..."
-			if (not os.path.isfile(targetfile)): # file needs to exist
-				print "%s Input file does not exist!" %Icon.error
-				sys.exit(2)
-			else: 
+			print "%s Processing file..." %Icon.info
+			if os.path.isfile(targetfile): # file needs to exist
 				with open(targetfile, 'r') as file:
 					lines = (line.rstrip() for line in file)
 					lines = (line for line in lines if line)
 					for line in lines:
 						target = line.strip('\n')
 						processTarget(target)
+			else: 
+				print "%s Input file does not exist!" %Icon.error
+				sys.exit(2)
 		else:
 			parser.print_usage()
 			sys.exit(0)
