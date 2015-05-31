@@ -737,34 +737,42 @@ def enumCiphers(protocol):
 
 def processTarget(target, internal=False):
 	global tls
-	if not re.match(r'^.*[:]+[0-9]{1,5}$', target):
-		target = target + ": %s" %dport
-		print Icon.info+" No port specified, setting a default one (%s)" %dport
-	host = target.split(':')
-	if not internal:
-		print "%s Processing target: %s on port: %s..." %(Icon.info, host[0], host[1])
-		if not preamble == None:
-			print "%s %s set as application layer" %(Icon.info, preamble.upper())
-	if reachable(host[0], host[1]):
-		tls = TLS(host[0], host[1])
-		
-		if not internal:
-			print "===============- "+CliColors.title+"Protocols"+CliColors.endc+" -================"
-			print "%s Supported encryption protocols:" %Icon.plus
-		protocols = enumProtocols()
-		if protocols:
-			print "================- "+CliColors.title+"Ciphers"+CliColors.endc+" -================="
-			for p in protocols:
-				print "%s Supported cipher suites for: %s" %(Icon.plus, p)
-				if p == 'SSLv2': # Special case for SSL2
-					cipherList = tls.ssl2Ciphers()
+	if not re.match("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|\
+					1[0-9]{2}|2[0-4][0-9]|25[0-4])($|:([0-9]{1,4}|[1-5][0-9][0-9][0-9][0-9]|\
+					6[0-4][0-9][0-9][0-9]|6[0-5][0-5][0-3][0-5]))$", target):
+
+		if re.match("^(([a-zA-Z0-9-.]|[a-z][a-z0-9]-.)*)([a-zA-Z0-9])($|:([1-9]{1,4}|[1-5][0-9][0-9][0-9][0-9]|\
+          	         		 6[0-4][0-9][0-9][0-9]|6[0-5][0-5][0-3][0-5]))$", target):
+
+			if not re.search(r'[:*]', target):
+				target = target+":" + "%i"%dport
+				print "%s No port specified, trying a default one (%i)."%(Icon.info,dport)
+			host = target.split(':')
+			if not internal:
+				print "%s Processing target: %s, port %s..." %(Icon.info,host[0], host[1])
+				if not preamble == None:
+					print "%s %s set as application layer" %(Icon.info, preamble.upper())
+			if reachable(host[0], host[1]):
+				tls = TLS(host[0], host[1])
+				if not internal:
+					print "===============- "+CliColors.title+"Protocols"+CliColors.endc+" -================"
+					print "%s Supported encryption protocols:"%Icon.plus
+				protocols = enumProtocols()
+				if protocols:
+					print "================- "+CliColors.title+"Ciphers"+CliColors.endc+" -================="
+					for p in protocols:
+						print "%s Supported cipher suites for: %s" %(Icon.plus,p)
+						if p == 'SSLv2': # Special case for SSL2
+							cipherList = tls.ssl2Ciphers()
+						else:
+							cipherList = tls.tlsCiphers()
+							supportedCiphers = enumCiphers(p)
+						for c in supportedCiphers:
+							print "    %s %s" %(Icon.norm, cipherList[c]) # Print Cipher
 				else:
-					cipherList = tls.tlsCiphers()
-				supportedCiphers = enumCiphers(p)
-				for c in supportedCiphers:
-					print "    %s %s" %(Icon.norm, cipherList[c]) # Print Cipher
+					print "    %s The service does not appear to be supporting SSL/TLS using current settings" %Icon.error
 		else:
-			print "    %s The service does not appear to be supporting SSL/TLS using current settings" %Icon.error
+			print "%s %s it not a valid target!"%(target,Icon.error)
 
 def main():
 	global preamble
@@ -799,7 +807,7 @@ def main():
 			processTarget(target)
 		elif targetfile:
 			print "Processing file..."
-			if (not os.path.isfile(targetfile)): # file needs to exist
+			if os.path.isfile(targetfile): # file needs to exist
 				print "%s Input file does not exist!" %Icon.error
 				sys.exit(2)
 			else: 
