@@ -621,6 +621,34 @@ def doPreamble(sock, preamble):
 					response = sock.recv(100)
 					if "234 " in response: # AUTH TLS Command Successful
 						sequenceComplete = True
+			elif preamble == "smtp":
+				buffer = sock.recv(50)
+				ready = False
+				while not ready:
+					if re.search(r'^220 .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+						ready = True
+						break
+					more = sock.recv(50)
+					if not more:
+						print "%s Did not receive a complete SMTP ready message" %Icon.error
+						break
+					else:
+						buffer += more
+				if ready:
+					sock.send("HELO example.org\r\n") # Compliant with older RFC
+					response = sock.recv(100)
+					if "250 " in response:
+						sock.send("STARTTLS\r\n")
+						response = sock.recv(100)
+						if "220 " in response:
+							sequenceComplete = True
+			elif preamble == "pop":
+				buffer = sock.recv(100)
+				if re.search(r'^\+OK .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+					sock.send("STLS\r\n")
+					response = sock.recv(100)
+					if re.search(r'^\+OK .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+						sequenceComplete = True
 		except socket.timeout:
 			pass 
 		return sequenceComplete
@@ -636,7 +664,7 @@ def enumProtocols():
 	supportedProtocols = []
 	protocols = ["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1.0", "SSLv3", "SSLv2"] # High to low 
 	for p in protocols: 
-		sock = tls.connect() # first connect, now a socket is returned
+		sock = tls.connect() # first connect
 		if preamble: # do preamble if required
 			if not doPreamble(sock, preamble):
 				break # prevent sending the clientHello if preamble failed
@@ -652,6 +680,8 @@ def enumProtocols():
 				if (contentType[0] == 'handshake' and contentType[1] == 'server_hello') and (responseProtocol == p):
 					supportedProtocols.append(p)
 					print "    %s Remote service supports: %s" %(Icon.norm, p)
+		else:
+			print "No response recieved"
 		tls.closeConnection()
 	return supportedProtocols
 
@@ -755,12 +785,20 @@ def main():
 		parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. 10.10.10.1:443", dest="target")
 		parser.add_option("-f", "--file", type="string", help="Specify target input file.", dest="file")
 		parser.add_option("--ftp", action="store_true", help="Use FTP protocol layer for FTPS", dest="ftp")
+		parser.add_option("--smtp", action="store_true", help="Use SMTP as protocol layer", dest="smtp")
+		parser.add_option("--pop", action="store_true", help="Use POP as protocol layer", dest="pop")
 		(options, args) = parser.parse_args()
 		target = options.target
 		targetfile = options.file
 		if options.ftp:
 			preamble = 'ftp'
 			dport = 21
+		elif options.smtp:
+			preamble = 'smtp'
+			dport = 465
+		elif options.pop:
+			preamble = 'pop'
+			dport = 995
 		else:
 			preamble = None
 		
