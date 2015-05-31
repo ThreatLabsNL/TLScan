@@ -649,6 +649,13 @@ def doPreamble(sock, preamble):
 					response = sock.recv(100)
 					if re.search(r'^\+OK .*?\n$', buffer, re.MULTILINE | re.DOTALL):
 						sequenceComplete = True
+			elif preamble == "imap": # https://tools.ietf.org/html/rfc3501
+				buffer = sock.recv(100)
+				if re.search(r'^\* OK .*?\n$', buffer):
+					sock.send("A001 STARTTLS\r\n")
+					response = sock.recv(100)
+					if "A001 OK " in response:
+						sequenceComplete = True
 		except socket.timeout:
 			pass 
 		return sequenceComplete
@@ -779,6 +786,7 @@ def main():
 		parser.add_option("--ftp", action="store_true", help="Use FTP protocol layer for FTPS", dest="ftp")
 		parser.add_option("--smtp", action="store_true", help="Use SMTP as protocol layer", dest="smtp")
 		parser.add_option("--pop", action="store_true", help="Use POP as protocol layer", dest="pop")
+		parser.add_option("--imap", action="store_true", help="Use IMAP as protocol layer", dest="imap")
 		(options, args) = parser.parse_args()
 		target = options.target
 		targetfile = options.file
@@ -791,6 +799,9 @@ def main():
 		elif options.pop:
 			preamble = 'pop'
 			dport = 995
+		elif options.imap:
+			preamble = 'imap'
+			dport = 993
 		else:
 			preamble = None
 		
