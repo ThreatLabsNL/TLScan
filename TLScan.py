@@ -681,7 +681,7 @@ def enumProtocols():
 					supportedProtocols.append(p)
 					print "    %s Remote service supports: %s" %(Icon.norm, p)
 		else:
-			print "No response recieved"
+			print "No response received"
 		tls.closeConnection()
 	return supportedProtocols
 
