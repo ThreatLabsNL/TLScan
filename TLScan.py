@@ -621,6 +621,27 @@ def doPreamble(sock, preamble):
 					response = sock.recv(100)
 					if "234 " in response: # AUTH TLS Command Successful
 						sequenceComplete = True
+			elif preamble == "smtp":
+				buffer = sock.recv(50)
+				ready = False
+				while not ready:
+					if re.search(r'^220 .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+						ready = True
+						break
+					more = sock.recv(50)
+					if not more:
+						print "%s Did not receive a complete SMTP ready message" %Icon.error
+						break
+					else:
+						buffer += more
+				if ready:
+					sock.send("HELO example.org\r\n") # Compliant with older RFC
+					response = sock.recv(100)
+					if "250 " in response:
+						sock.send("STARTTLS\r\n")
+						response = sock.recv(100)
+						if "220 " in response:
+							sequenceComplete = True
 		except socket.timeout:
 			pass 
 		return sequenceComplete
@@ -747,12 +768,16 @@ def main():
 		parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. 10.10.10.1:443", dest="target")
 		parser.add_option("-f", "--file", type="string", help="Specify target input file.", dest="file")
 		parser.add_option("--ftp", action="store_true", help="Use FTP protocol layer for FTPS", dest="ftp")
+		parser.add_option("--smtp", action="store_true", help="Use SMTP as protocol layer", dest="smtp")
 		(options, args) = parser.parse_args()
 		target = options.target
 		targetfile = options.file
 		if options.ftp:
 			preamble = 'ftp'
 			dport = 21
+		elif options.smtp:
+			preamble = 'smtp'
+			dport = 465
 		else:
 			preamble = None
 		
