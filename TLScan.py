@@ -642,6 +642,13 @@ def doPreamble(sock, preamble):
 						response = sock.recv(100)
 						if "220 " in response:
 							sequenceComplete = True
+			elif preamble == "pop":
+				buffer = sock.recv(100)
+				if re.search(r'^\+OK .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+					sock.send("STLS\r\n")
+					response = sock.recv(100)
+					if re.search(r'^\+OK .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+						sequenceComplete = True
 		except socket.timeout:
 			pass 
 		return sequenceComplete
@@ -657,7 +664,7 @@ def enumProtocols():
 	supportedProtocols = []
 	protocols = ["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1.0", "SSLv3", "SSLv2"] # High to low 
 	for p in protocols: 
-		sock = tls.connect() # first connect, now a socket is returned
+		sock = tls.connect() # first connect
 		if preamble: # do preamble if required
 			if not doPreamble(sock, preamble):
 				break # prevent sending the clientHello if preamble failed
@@ -769,6 +776,7 @@ def main():
 		parser.add_option("-f", "--file", type="string", help="Specify target input file.", dest="file")
 		parser.add_option("--ftp", action="store_true", help="Use FTP protocol layer for FTPS", dest="ftp")
 		parser.add_option("--smtp", action="store_true", help="Use SMTP as protocol layer", dest="smtp")
+		parser.add_option("--pop", action="store_true", help="Use POP as protocol layer", dest="pop")
 		(options, args) = parser.parse_args()
 		target = options.target
 		targetfile = options.file
@@ -778,6 +786,9 @@ def main():
 		elif options.smtp:
 			preamble = 'smtp'
 			dport = 465
+		elif options.pop:
+			preamble = 'pop'
+			dport = 995
 		else:
 			preamble = None
 		
