@@ -497,7 +497,6 @@ class TLS:
 				helloMsg = self.tlsHello(protocol, cipher)
 				self.TCP.sendall(helloMsg)
 				buffer = self.TCP.recv(1024)
-				#print buffer.encode('hex')
 				if buffer:
 					if not self.contentType(buffer)[0] == 'alert' and not self.contentType(buffer)[1] == 'handshake_failure':
 						buffering = True
@@ -516,8 +515,10 @@ class TLS:
 				response = False 
 			elif e.errno == 61:
 				repsponse = False
+			elif socket.timeout:
+				print "    %s The connection timed out, due to a missing or unexpected response" %Icon.error
 			else:
-				print "    %s The connection probably timed out due to unexpected response"  %Icon.error
+				print "    %s An unexpected error occurred"  %Icon.error
 		return response
 	
 	def connect(self):
@@ -594,7 +595,6 @@ def reachable(host, port): # a quick reachability check
 		conn = socket.create_connection((host, int(port)), 1)
 		conn.close()
 	except:
-		print "%s An error occurred while connecting, skipping service/target" %Icon.error
 		reachable = False
 		pass # prevent from dying
 	return reachable
@@ -674,7 +674,7 @@ def enumProtocols():
 		sock = tls.connect() # first connect
 		if preamble: # do preamble if required
 			if not doPreamble(sock, preamble):
-				break # prevent sending the clientHello if preamble failed
+				break
 		response = tls.doClientHello(p) # then send hello
 		if response:
 			if p == 'SSLv2':
@@ -688,7 +688,7 @@ def enumProtocols():
 					supportedProtocols.append(p)
 					print "    %s Remote service supports: %s" %(Icon.norm, p)
 		else:
-			print "No response recieved"
+			break # prevent from 
 		tls.closeConnection()
 	return supportedProtocols
 
@@ -772,6 +772,8 @@ def processTarget(target, internal=False):
 					print "    %s %s" %(Icon.norm, cipherList[c]) # Print Cipher
 		else:
 			print "    %s The service does not appear to be supporting SSL/TLS using current settings" %Icon.error
+	else:
+		print "%s An error occurred while connecting, skipping service/target" %Icon.error
 
 def main():
 	global preamble
