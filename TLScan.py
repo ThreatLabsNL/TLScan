@@ -406,6 +406,9 @@ class TLS:
 		cipher['\xC0\xAD'] = 'TLS_ECDHE_ECDSA_WITH_AES_256_CCM'
 		cipher['\xC0\xAE'] = 'TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8'
 		cipher['\xC0\xAF'] = 'TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8'
+		cipher['\xCC\x13'] = 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256'
+		cipher['\xCC\x14'] = 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256'
+		cipher['\xCC\x15'] = 'TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256'
 		# http://www.mozilla.org/projects/security/pki/nss/ssl/fips-ssl-ciphersuites.html
 		#cipher['\xFE\xFE'] = 'SSL_RSA_FIPS_WITH_DES_CBC_SHA'
 		#cipher['\xFE\xFF'] = 'SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA'
