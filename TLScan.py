@@ -672,7 +672,7 @@ def enumProtocols():
 	protocols = ["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1.0", "SSLv3", "SSLv2"] # High to low 
 	for p in protocols: 
 		sock = tls.connect() # first connect
-		if preamble: # do preamble if required
+		if preamble: # do preamble if set
 			if not doPreamble(sock, preamble):
 				break
 		response = tls.doClientHello(p) # then send hello
