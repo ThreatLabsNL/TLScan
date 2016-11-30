@@ -1,10 +1,8 @@
 #!/usr/bin/python
 #
-# Public release V0.2 by M.H. Jansen of Lorkeers
-#
 # The MIT License (MIT)
 # 
-# Copyright (c) 2015 M.H. Jansen of Lorkeers
+# TLScan, Copyright (c) 2015 M.H. Jansen of Lorkeers
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -73,6 +71,7 @@ class TLS:
 		cipher['\x06\x00\x40'] = 'SSL2_DES_64_CBC_WITH_MD5'
 		cipher['\x07\x00\xC0'] = 'SSL2_DES_192_EDE3_CBC_WITH_MD5'
 		cipher['\x08\x00\x80'] = 'SSL2_RC4_64_WITH_MD5'
+		
 		return cipher
 	
 	def tlsCiphers(self):
@@ -433,9 +432,13 @@ class TLS:
 			for c in cipher.keys():
 				cipher_spec += c
 		challenge = "\x6a\x61\x6e\x73\x65\x6e\x6f\x66\x6c\x6f\x72\x6b\x65\x65\x72\x73"
-		p_len = len(cipher_spec) + len(challenge) + 9 
+		p_len = len(cipher_spec) + len(challenge) + 9
+		
+	 	mask = bin(0x8000) # Most significant bit should be set to indicate no padding
+		bin_plen = bin(p_len)
+		
 		packet = ""
-		packet = struct.pack("!H", p_len) 
+		packet = struct.pack("!H", int(mask,2) + int(bin_plen,2))  # Length of record
 		packet += "\x01" 
 		packet += "\x00\x02"
 		packet += struct.pack("!H", len(cipher_spec))
@@ -587,10 +590,14 @@ class TLS:
 			return ""
 	
 
-
 def removeFromCipherList(cipherList, cipher):
 	cipherList.pop(cipher, None)
 	return cipherList
+
+def chunks(s, n): 
+	# chunk generator from string
+    for start in range(0, len(s), n):
+        yield s[start:start+n]
 
 def reachable(host, port): # a quick reachability check
 	reachable = True
@@ -659,6 +666,18 @@ def doPreamble(sock, preamble):
 					response = sock.recv(100)
 					if "A001 OK " in response:
 						sequenceComplete = True
+			elif preamble == "xmpp":
+				sock.send("<stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' to='example.com' version='1.0'>")
+				buffer = sock.recv(1024)
+				if buffer:
+					sock.send("")
+					buffer = sock.recv(1024)
+					# print buffer
+					if re.search("starttls xmlns='urn\:ietf\:params\:xml\:ns\:xmpp-tls'", buffer):
+						sock.send("<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>")
+						buffer = sock.recv(1024)
+						if buffer == "<proceed xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>":
+							sequenceComplete = True
 		except socket.timeout:
 			pass 
 		return sequenceComplete
@@ -667,7 +686,7 @@ def doPreamble(sock, preamble):
 
 
 def banner():
-	return "============================================\nTLS/SSL Cipher Scanner\n============================================"
+	return "============================================\nTLScan\n============================================"
 
 def enumProtocols():
 	global supportedProtocols
@@ -683,7 +702,7 @@ def enumProtocols():
 			if p == 'SSLv2':
 				if bytearray(response)[2] == 4:
 					supportedProtocols.append(p)
-					print "%s %s" %(Icon.norm, p)
+					print "    %s Remote service supports: %s" %(Icon.norm, p)
 			else:
 				responseProtocol = tls.responseProtocol(response)
 				contentType = tls.contentType(response)
@@ -784,7 +803,7 @@ def main():
 	dport = 443
 	try:
 		usage = 'usage: %prog -t <host>:<port> [ options ]'
-		version = 'V0.2 by M.H. Jansen of Lorkeers'
+		version = 'V0.3 by M.H. Jansen of Lorkeers'
 		parser = OptionParser(usage=usage, version=version)
 		parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. 10.10.10.1:443", dest="target")
 		parser.add_option("-f", "--file", type="string", help="Specify target input file.", dest="file")
@@ -792,6 +811,7 @@ def main():
 		parser.add_option("--smtp", action="store_true", help="Use SMTP as protocol layer", dest="smtp")
 		parser.add_option("--pop", action="store_true", help="Use POP as protocol layer", dest="pop")
 		parser.add_option("--imap", action="store_true", help="Use IMAP as protocol layer", dest="imap")
+		parser.add_option("--xmpp", action="store_true", help="Use XMPP as protocol layer", dest="xmpp")
 		(options, args) = parser.parse_args()
 		target = options.target
 		targetfile = options.file
@@ -807,6 +827,9 @@ def main():
 		elif options.imap:
 			preamble = 'imap'
 			dport = 993
+		elif options.xmpp:
+			preamble = 'xmpp'
+			dport = 5222
 		else:
 			preamble = None
 		
