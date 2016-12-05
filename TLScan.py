@@ -39,7 +39,7 @@ class CliColors:
 	title = '\033[34;1m'
 	endc = '\033[0m'
 
-class Icon:
+class Icon(CliColors):
 	error = "[e]"
 	info = "["+CliColors.green+"i"+CliColors.endc+"]"
 	norm = "[-]"
@@ -520,7 +520,7 @@ class TLS:
 			if e.errno == 54:
 				response = False 
 			elif e.errno == 61:
-				repsponse = False
+				response = False
 			elif socket.timeout:
 				print "    %s The connection timed out, due to a missing or unexpected response" %Icon.error
 			else:
@@ -709,8 +709,6 @@ def enumProtocols():
 				if (contentType[0] == 'handshake' and contentType[1] == 'server_hello') and (responseProtocol == p):
 					supportedProtocols.append(p)
 					print "    %s Remote service supports: %s" %(Icon.norm, p)
-		else:
-			break # prevent from 
 		tls.closeConnection()
 	return supportedProtocols
 
