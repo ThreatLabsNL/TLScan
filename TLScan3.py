@@ -932,16 +932,18 @@ class TLS(object):
             self.TCP.sendall(record_instance.get_bytes())  # Send the byte representation of the object
             if TLS.is_ssl3_tls(record_instance.version):  # TLS/SSL
                 header = self.TCP.recv(5)  # TYPE(1), VERSION(2), LENGTH(2)
-                rec = Record(TLS.get_version_from_bytes(header[1:3]), struct.unpack('!B', header[0:1])[0])
-                rec.length = struct.unpack('!H', header[3:5])[0]
-                if 0 < rec.length:
-                    response = self.get_response_record(rec)
+                if header:
+                    rec = Record(TLS.get_version_from_bytes(header[1:3]), struct.unpack('!B', header[0:1])[0])
+                    rec.length = struct.unpack('!H', header[3:5])[0]
+                    if 0 < rec.length:
+                        response = self.get_response_record(rec)
             elif TLS.is_ssl2(record_instance.version):
                 header = self.TCP.recv(3)  # LENGTH(2), TYPE(1)
-                rec = Record(record_instance.version, struct.unpack('!B', header[2:3])[0])  # Version is assumed
-                rec.length = TLS.get_ssl2_record_len(struct.unpack('!H', header[0:2])[0]) 
-                if 0 < rec.length:
-                    response = self.get_response_record(rec)
+                if header:
+                    rec = Record(record_instance.version, struct.unpack('!B', header[2:3])[0])  # Version is assumed
+                    rec.length = TLS.get_ssl2_record_len(struct.unpack('!H', header[0:2])[0]) 
+                    if 0 < rec.length:
+                        response = self.get_response_record(rec)
         except socket.error as e:
             if e.errno == errno.ECONNRESET:  # 54; Microsoft sometimes just resets the connection
                 msg = "Connection reset"  # Usually means: not supported or not an acceptable offer
