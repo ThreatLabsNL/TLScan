@@ -1042,13 +1042,14 @@ class Enumerator(object):
         if self.verbose:
             print(string)
 	
-    @staticmethod
-    def get_ecc_extended_client_hello(version, cipher_list):
+    def get_ecc_extended_client_hello(self, version, cipher_list):
         client_hello = ClientHello(version, cipher_list)
-        # Extensions required for ECC ciphers
+        # Extensions required for ECC cipher detection
         client_hello.add_extension(EllipticCurves(TLS.NamedCurve))
         client_hello.add_extension(ECPointFormats(TLS.ECPointFormat))
         client_hello.add_extension(SignatureAlgorithms(Enumerator.get_hash_sig_list()))
+        client_hello.add_extension(ServerName(self.target.host))
+        client_hello.add_extension(HeartBeat(True))
         return client_hello
 
     @staticmethod
