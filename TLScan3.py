@@ -514,6 +514,8 @@ class TLS(object):
         b'\x00\x44': 'TLS_DHE_DSS_WITH_CAMELLIA_128_CBC_SHA',
         b'\x00\x45': 'TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA',
         b'\x00\x46': 'TLS_DH_anon_WITH_CAMELLIA_128_CBC_SHA',
+		b'\x00\x60': 'TLS_RSA_EXPORT1024_WITH_RC4_56_MD5',
+        b'\x00\x61': 'TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5',
         # http://tools.ietf.org/html/draft-ietf-tls-56-bit-ciphersuites-01 (next 5)
         b'\x00\x62': 'TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA',
         b'\x00\x63': 'TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA',
@@ -777,11 +779,22 @@ class TLS(object):
         b'\xCC\x13': 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256',
         b'\xCC\x14': 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256',
         b'\xCC\x15': 'TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256',
+		# rfc7905
+		b'\xCC\xA8': 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256',
+		b'\xCC\xA9': 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256',
+		b'\xCC\xAA': 'TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256',
+		b'\xCC\xAB': 'TLS_PSK_WITH_CHACHA20_POLY1305_SHA256',
+		b'\xCC\xAC': 'TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256',
+		b'\xCC\xAD': 'TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256',
+		b'\xCC\xAE': 'TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256',
+		b'\xFF\x01': 'TLS_RSA_WITH_28147_CNT_GOST94',
+		b'\xFF\x02': 'TLS_RSA_GOST89MAC',  # Official name unknow
+		b'\xFF\x03': 'TLS_RSA_GOST89STREAM',  # Official name unknown
         # http://www.mozilla.org/projects/security/pki/nss/ssl/fips-ssl-ciphersuites.html
-        # b'\xFE\xFE': 'SSL_RSA_FIPS_WITH_DES_CBC_SHA',
-        # b'\xFE\xFF': 'SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA',
-        # b'\xFF\xE0': 'SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA',
-        # b'\xFF\xE1': 'SSL_RSA_FIPS_WITH_DES_CBC_SHA',
+        b'\xFE\xFE': 'SSL_RSA_FIPS_WITH_DES_CBC_SHA',
+        b'\xFE\xFF': 'SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA',
+        b'\xFF\xE0': 'SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA',
+        b'\xFF\xE1': 'SSL_RSA_FIPS_WITH_DES_CBC_SHA',
         # Special one to indicate client's support for downgrade prevention - rfc7507
         # b'\x56\x00': 'TLS_FALLBACK_SCSV',  # Make a ClientHello property
     }
