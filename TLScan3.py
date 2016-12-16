@@ -276,7 +276,7 @@ class ClientHello(Record):
             if TLS.is_ssl3_tls(version):
                 super(self.__class__, self).__init__((3, 1), TLS.ContentType.handshake)  # Record version set to TLSv1_0
                 self.handshake_version = version
-                self.compression = b'\x02\x01\x00'  # Currently hardcoded
+                self.compression = b'\x01\x00'  # Currently hardcoded
                 self.length = len(self.cipher_spec) + len(self.compression) + 41  # 32 random + 4 length + ..
                 self.set_tls_hello_body_bytes()
 
@@ -409,7 +409,7 @@ class ServerHello(Record):
 class TLS(object):
 
     def __init__(self, tcp):
-        self.verbose = True
+        self.verbose = False
         self.TCP = tcp
 
     max_record_length = 4096
@@ -998,7 +998,7 @@ class Enumerator(object):
             sys.exit("Please provide a Target instance to the Enumerator")
         else:
             self.target = target
-        self.verbose = True
+        self.verbose = False
 
     def get_version_support(self, version_list):
         supported = []
@@ -1101,6 +1101,7 @@ def main():
     target = options.target
     if target:
         if not re.match(r'^.*[:]+[0-9]{1,5}$', target):
+            print("Port not provided, using default ({0})".format(default_port))
             target = "{0}:{1}".format(target, default_port)
         host = target.split(':')
         t = Target(host[0], host[1])
