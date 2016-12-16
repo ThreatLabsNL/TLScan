@@ -81,6 +81,15 @@ class TargetParser:
         if re.match(TargetParser.ipv4_hostname_notation_regex, self.string):
             return True
 
+    @staticmethod  # https://stackoverflow.com/questions/2532053/validate-a-hostname-string
+    def is_valid_hostname(hostname):
+        if len(hostname) > 255:
+            return False
+        if hostname[-1] == ".":
+            hostname = hostname[:-1]
+        allowed = re.compile('(?!-)[A-Z\d-]{1,63}(?<!-)$', re.IGNORECASE)
+        return all(allowed.match(x) for x in hostname.split("."))
+
     def _parse_ipv6_notation(self):
         m = re.match(TargetParser.ipv6_notation_regex, self.string)
         if TCP.get_address_type(m.group(1)) == socket.AF_INET6:
@@ -91,7 +100,7 @@ class TargetParser:
 
     def _parse_ipv4_hostname_notation(self):
         m = re.match(TargetParser.ipv4_hostname_notation_regex, self.string)
-        if TCP.get_address_type(m.group(1)) == socket.AF_INET or Helpers.is_valid_hostname(m.group(1)):
+        if TCP.get_address_type(m.group(1)) == socket.AF_INET or TargetParser.is_valid_hostname(m.group(1)):
             self.host = m.group(1)
             self.port = m.group(2)
         else:
@@ -143,15 +152,6 @@ class TCP(object):
 
 
 class Helpers:
-
-    @staticmethod
-    def is_valid_hostname(hostname):
-        if len(hostname) > 255:
-            return False
-        if hostname[-1] == ".":
-            hostname = hostname[:-1]  # strip exactly one dot from the right, if present
-        allowed = re.compile('(?!-)[A-Z\d-]{1,63}(?<!-)$', re.IGNORECASE)
-        return all(allowed.match(x) for x in hostname.split("."))
 
     @staticmethod
     def chunk_string(input_string, length):
@@ -1074,16 +1074,23 @@ class Enumerator(object):
 
     def get_version_support(self, version_list):
         supported = []
+        self.print_verbose("Enumerating TLS/SSL version support for: {0} port {1}"
+                           .format(self.target.host, self.target.port))
         for v in version_list:
-            with TCP(self.target.host, self.target.port).connect() as tcp:
-                tls = TLS(tcp)  # Pass a socket object (connection) to start a TLS instance
-                if TLS.is_ssl3_tls(TLS.versions[v]):
-                    response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[v], TLS.ciphers_tls))
-                elif TLS.is_ssl2(TLS.versions[v]):
-                    response = tls.send_record(ClientHello(TLS.versions[v], TLS.ciphers_ssl2))
-                if isinstance(response, ServerHello) and response.handshake_protocol == TLS.versions[v]:
-                    supported.append(v)
-                    # self.print_verbose("Target supports protocol: {0}".format(v))
+            try:
+                with TCP(self.target.host, self.target.port).connect() as tcp:
+                    tls = TLS(tcp)  # Pass a socket object (connection) to start a TLS instance
+                    if TLS.is_ssl3_tls(TLS.versions[v]):  # TODO: Change the
+                        response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[v], TLS.ciphers_tls))
+                    elif TLS.is_ssl2(TLS.versions[v]):
+                        response = tls.send_record(ClientHello(TLS.versions[v], TLS.ciphers_ssl2))
+                    if isinstance(response, ServerHello) and response.handshake_protocol == TLS.versions[v]:
+                        supported.append(v)
+                        self.print_verbose("  [+]: {0}".format(v))
+            except socket.gaierror:
+                print ("Host unknown/invalid ({0})".format(self.target.host))
+            except:
+                raise
         return supported
 
     def get_cipher_support(self, version):
@@ -1093,6 +1100,7 @@ class Enumerator(object):
         elif TLS.is_ssl2(TLS.versions[version]):
             cipher_list = TLS.get_cipher_list(TLS.Protocols.SSL2)
         server_hello_cipher = True
+        self.print_verbose("Enumerating ciphers for: {0}".format(version))
         while server_hello_cipher:
             for c in cipher_list:
                 with TCP(self.target.host, self.target.port).connect() as tcp:
@@ -1106,6 +1114,7 @@ class Enumerator(object):
                                 break
                             elif hello_cipher:
                                 supported.append(hello_cipher)
+                                self.print_verbose("  [+] {0}".format(hello_cipher[1]))
                                 cipher_list.remove(hello_cipher[0])
                         else:  # No hello received, could be an alert
                             server_hello_cipher = False
@@ -1114,6 +1123,8 @@ class Enumerator(object):
                         response = tls.send_record(ClientHello(TLS.versions[version], cipher_list))
                         if isinstance(response, ServerHello):
                             supported = response.ssl2_response_ciphers  # ssl2 returns all ciphers at once
+                            if self.verbose:
+                                [print("  [+] {0}".format(s[1])) for s in supported]
                         server_hello_cipher = False
                         break
         return supported
@@ -1150,16 +1161,16 @@ def test(t):
         'SSLv2'
     ]
     enum = Enumerator(t)
-    enum.verbose = True
+    enum.verbose = True  # Enumerator will now visualise in verbose mode
     supported_protocols = enum.get_version_support(versions)
-    for sp in supported_protocols:
-        print("Target service supports: {0}".format(sp))
+    #for sp in supported_protocols:
+    #    print("Target service supports: {0}".format(sp))
 
     for p in supported_protocols:
         ciphers = enum.get_cipher_support(p)
-        print("{0} supports {1} ciphers:".format(p, len(ciphers)))
-        for c in ciphers:
-            print("    [-] {0}".format(c[1]))
+        #print("{0} supports {1} ciphers:".format(p, len(ciphers)))
+        #for c in ciphers:
+        #    print("    [-] {0}".format(c[1]))
 
 
 def main():
