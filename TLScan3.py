@@ -2,7 +2,7 @@
 #
 # The MIT License (MIT)
 #
-# TLScan, Copyright (c) 2016 M.H. Jansen of Lorkeers
+# TLScan3, Copyright (c) 2016 M.H. Jansen of Lorkeers
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,6 +39,8 @@
 import socket, errno
 import struct
 import os, sys, time
+import re
+from optparse import OptionParser
 try:
     from enum import Enum  # supported from Python v3.4
 except ImportError:
@@ -1067,24 +1069,45 @@ class Enumerator(object):
         return h_s_list
 
 
-# ------------- MAIN HERE (TODO)---------------
-
-versions = ['TLSv1_2', 'TLSv1_1', 'TLSv1_0', 'SSLv3', 'SSLv2']  # High to low
-
-t = Target('www.example.com', 443)
-
-
-
 def test(t):
+    versions = [  # High to low
+        'TLSv1_2',
+        'TLSv1_1',
+        'TLSv1_0',
+        'SSLv3',
+        'SSLv2'
+    ]
     enum = Enumerator(t)
+    enum.verbose = True
     supported_protocols = enum.get_version_support(versions)
     for sp in supported_protocols:
-        print("Service supports: {0}".format(sp))
+        print("Target service supports: {0}".format(sp))
 
     for p in supported_protocols:
         ciphers = enum.get_cipher_support(p)
-        print("{0} supports: {1} ciphers:".format(p, len(ciphers)))
+        print("{0} supports {1} ciphers:".format(p, len(ciphers)))
         for c in ciphers:
-            print("[-] {0}".format(c[1]))
+            print("    [-] {0}".format(c[1]))
 
-test(t)
+
+def main():
+    default_port = 443
+    usage = 'Usage: %prog -t <host>:<port> [ options ]'
+    version = "v0.2"
+    parser = OptionParser(usage=usage, version=version)
+    parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. www.example.com:443",
+                      dest="target")
+    (options, args) = parser.parse_args()
+    target = options.target
+    if target:
+        if not re.match(r'^.*[:]+[0-9]{1,5}$', target):
+            target = "{0}:{1}".format(target, default_port)
+        host = target.split(':')
+        t = Target(host[0], host[1])
+        test(t)
+    else:
+        parser.print_usage()
+        sys.exit(0)
+
+if __name__ == '__main__':
+    main()
