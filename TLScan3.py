@@ -1178,8 +1178,8 @@ def main():
     usage = 'Usage: %prog -t <host>:<port> [ options ]'
     version = "v0.2"
     parser = OptionParser(usage=usage, version=version)
-    parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. www.example.com:443",
-                      dest="target")
+    parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. www.example.com:443 "
+                                                            "or [::1]:443 for IPv6", dest="target")
     (options, args) = parser.parse_args()
     target = options.target
     if target:
