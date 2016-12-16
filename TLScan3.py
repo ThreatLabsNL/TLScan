@@ -127,10 +127,10 @@ class TCP(object):
         try:
             self.conn = socket.create_connection((self.host, int(self.port)), self.timeout)
             return self.conn
-        except socket.error as e:
-            # if e.errno == errno.
-            print("Unable to connect to remote host, please check it is up!")
-            pass
+        except socket.gaierror:
+            print("Invalid/unknown host ({0})".format(self.host))
+        except:
+            raise
 
     def close(self):
         self.conn.close()
@@ -476,6 +476,13 @@ class ServerHello(Record):
         else:
             version = self.version
         return version
+    
+    @property
+    def compression_method(self):
+        if TLS.is_ssl3_tls(self.version):
+            start = struct.unpack('!b', self.body[38:39])[0] + 41
+            compression = self.body[start:start+1]
+            return TLS.CompressionMethod(struct.unpack('!B', compression)[0])
 
 
 class TLS(object):
@@ -940,6 +947,11 @@ class TLS(object):
         rsa = 1
         dsa = 2
         ecdsa = 3
+        
+    class CompressionMethod(Enum):
+        null = 0
+        DEFLATE = 1  # RFC3749
+        LZS = 64  # RFC3943
 
     class HandshakeType:
         hello_request = 0
@@ -1087,8 +1099,8 @@ class Enumerator(object):
                     if isinstance(response, ServerHello) and response.handshake_protocol == TLS.versions[v]:
                         supported.append(v)
                         self.print_verbose("  [+]: {0}".format(v))
-            except socket.gaierror:
-                print ("Host unknown/invalid ({0})".format(self.target.host))
+            except AttributeError:
+                break
             except:
                 raise
         return supported
@@ -1103,30 +1115,35 @@ class Enumerator(object):
         self.print_verbose("Enumerating ciphers for: {0}".format(version))
         while server_hello_cipher:
             for c in cipher_list:
-                with TCP(self.target.host, self.target.port).connect() as tcp:
-                    tls = TLS(tcp)
-                    if TLS.is_ssl3_tls(TLS.versions[version]):
-                        response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[version], cipher_list))
-                        if isinstance(response, ServerHello):
-                            hello_cipher = response.response_cipher
-                            if hello_cipher and hello_cipher in supported:
+                try:
+                    with TCP(self.target.host, self.target.port).connect() as tcp:
+                        tls = TLS(tcp)
+                        if TLS.is_ssl3_tls(TLS.versions[version]):
+                            response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[version], cipher_list))
+                            if isinstance(response, ServerHello):
+                                hello_cipher = response.response_cipher
+                                if hello_cipher and hello_cipher in supported:
+                                    server_hello_cipher = False
+                                    break
+                                elif hello_cipher:
+                                    supported.append(hello_cipher)
+                                    self.print_verbose("  [+] {0}".format(hello_cipher[1]))
+                                    cipher_list.remove(hello_cipher[0])
+                            else:  # No hello received, could be an alert
                                 server_hello_cipher = False
                                 break
-                            elif hello_cipher:
-                                supported.append(hello_cipher)
-                                self.print_verbose("  [+] {0}".format(hello_cipher[1]))
-                                cipher_list.remove(hello_cipher[0])
-                        else:  # No hello received, could be an alert
+                        elif TLS.is_ssl2(TLS.versions[version]):
+                            response = tls.send_record(ClientHello(TLS.versions[version], cipher_list))
+                            if isinstance(response, ServerHello):
+                                supported = response.ssl2_response_ciphers  # ssl2 returns all ciphers at once
+                                if self.verbose:
+                                    [print("  [+] {0}".format(s[1])) for s in supported]
                             server_hello_cipher = False
                             break
-                    elif TLS.is_ssl2(TLS.versions[version]):
-                        response = tls.send_record(ClientHello(TLS.versions[version], cipher_list))
-                        if isinstance(response, ServerHello):
-                            supported = response.ssl2_response_ciphers  # ssl2 returns all ciphers at once
-                            if self.verbose:
-                                [print("  [+] {0}".format(s[1])) for s in supported]
-                        server_hello_cipher = False
-                        break
+                except AttributeError:
+                    break
+                except:
+                    raise
         return supported
 
     def print_verbose(self, string):
@@ -1162,15 +1179,10 @@ def test(t):
     ]
     enum = Enumerator(t)
     enum.verbose = True  # Enumerator will now visualise in verbose mode
+    
     supported_protocols = enum.get_version_support(versions)
-    #for sp in supported_protocols:
-    #    print("Target service supports: {0}".format(sp))
-
     for p in supported_protocols:
         ciphers = enum.get_cipher_support(p)
-        #print("{0} supports {1} ciphers:".format(p, len(ciphers)))
-        #for c in ciphers:
-        #    print("    [-] {0}".format(c[1]))
 
 
 def main():
