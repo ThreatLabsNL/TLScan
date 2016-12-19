@@ -121,19 +121,60 @@ class TCP(object):
         self.retries = 1  # Not used ATM
         self.host = host
         self.port = port
-        self.conn = None
+        self.socket = None
 
     def connect(self):
         try:
-            self.conn = socket.create_connection((self.host, int(self.port)), self.timeout)
-            return self.conn
+            self.socket = socket.create_connection((self.host, int(self.port)), self.timeout)
+            #return self.socket
+            return self
         except socket.gaierror:
             print("Invalid/unknown host ({0})".format(self.host))
+        except (socket.timeout, ConnectionRefusedError):
+            print("Unable to connect to the remote host/service")
+        except socket.error as e:
+            if e.errno == errno.EHOSTDOWN or e.errno == errno.EHOSTUNREACH:
+                print("The host provided is down/unreachable")
+            else:
+                raise e
         except:
             raise
+    
+    def send_all(self, data):  # Just a wrapper
+        self.socket.sendall(data)
+        
+    def receive_buffer(self, length):
+        data = b''
+        timeout_retries = 0
+        total_received = 0
+        empty_buffer_count = 0
+        to_receive = length  # Initial value
+        self.socket.settimeout(0.02)
+        while total_received < length and empty_buffer_count < 3:
+            try:
+                new_data = self.socket.recv(to_receive)
+                if new_data:
+                    data += new_data
+                    total_received = len(data)
+                    to_receive = length - total_received if length > total_received else 0
+                    del new_data
+                else:  # Nothing in tha buffer
+                    if len(data) == 0:
+                        empty_buffer_count += 1
+            except socket.timeout:
+                if len(data) == 0 and timeout_retries < 2:
+                    break
+                timeout_retries += 1
+                if timeout_retries == 3:
+                    break
+        self.socket.settimeout(None)
+        return data
 
-    def close(self):
-        self.conn.close()
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.socket.close()
 
     @staticmethod
     def get_address_type(address):
@@ -147,8 +188,7 @@ class TCP(object):
             return socket.AF_INET6 
         return socket.AF_INET
 
-    # def host_up(self):
-    #    return true
+
 
 
 class Helpers:
@@ -1017,38 +1057,46 @@ class TLS(object):
         return version
 
     def send_record(self, record_instance):
-        response = None
+        # response = None
+        response = []  # Changed to return a list of record objects
         if not isinstance(record_instance, Record):
             sys.exit("send_record (TLS) was not passed a Record instance")
         try:
-            self.TCP.sendall(record_instance.get_bytes())  # Send the byte representation of the object
+            self.TCP.send_all(record_instance.get_bytes())  # Sending the byte representation of the object
             if TLS.is_ssl3_tls(record_instance.version):  # TLS/SSL
-                header = self.TCP.recv(5)  # TYPE(1), VERSION(2), LENGTH(2)
-                if header:
-                    rec = Record(TLS.get_version_from_bytes(header[1:3]), struct.unpack('!B', header[0:1])[0])
-                    rec.length = struct.unpack('!H', header[3:5])[0]
-                    if 0 < rec.length:
-                        response = self.get_response_record(rec)
+                header = self.TCP.receive_buffer(5)  # TYPE(1), VERSION(2), LENGTH(2)
+                while header:
+                    if header and len(header) == 5:
+                        rec = Record(TLS.get_version_from_bytes(header[1:3]), struct.unpack('!B', header[0:1])[0])
+                        rec.length = struct.unpack('!H', header[3:5])[0]
+                        if 0 < rec.length:
+                            response.append(self.get_response_record(rec))
+                    next_header = self.TCP.receive_buffer(5)
+                    if next_header:
+                        header = next_header
+                        del next_header
+                    else:
+                        break
             elif TLS.is_ssl2(record_instance.version):
-                header = self.TCP.recv(3)  # LENGTH(2), TYPE(1)
-                if header:
+                header = self.TCP.receive_buffer(3)  # LENGTH(2), TYPE(1)
+                if header and len(header) == 3:
                     rec = Record(record_instance.version, struct.unpack('!B', header[2:3])[0])  # Version is assumed
-                    rec.length = TLS.get_ssl2_record_len(struct.unpack('!H', header[0:2])[0]) 
+                    rec.length = TLS.get_ssl2_record_len(struct.unpack('!H', header[0:2])[0] - 3)  # Bugfix
                     if 0 < rec.length:
-                        response = self.get_response_record(rec)
+                        response.append(self.get_response_record(rec))
         except socket.error as e:
             if e.errno == errno.ECONNRESET:  # 54; Microsoft sometimes just resets the connection
                 msg = "Connection reset"  # Usually means: not supported or not an acceptable offer
                 pass
             elif e.errno == errno.ECONNREFUSED:  # 61
-                msg = "Connection refused"  # Maybe do retry?
+                msg = "Connection refused"
             else:
-                raise
-        return response  # TODO: if no response, provide reason/msg?
+                raise e
+        return response
 
     def get_response_record(self, record):
         response = record
-        buffer = self.TCP.recv(record.length)
+        buffer = self.TCP.receive_buffer(record.length)
         if buffer:
             record.body = buffer
             if TLS.is_ssl3_tls(record.version):
@@ -1096,9 +1144,10 @@ class Enumerator(object):
                         response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[v], TLS.ciphers_tls))
                     elif TLS.is_ssl2(TLS.versions[v]):
                         response = tls.send_record(ClientHello(TLS.versions[v], TLS.ciphers_ssl2))
-                    if isinstance(response, ServerHello) and response.handshake_protocol == TLS.versions[v]:
-                        supported.append(v)
-                        self.print_verbose("  [+]: {0}".format(v))
+                    if len(response) > 0:
+                        if isinstance(response[0], ServerHello) and response[0].handshake_protocol == TLS.versions[v]:
+                            supported.append(v)
+                            self.print_verbose("  [+]: {0}".format(v))
             except AttributeError:
                 break
             except:
@@ -1120,26 +1169,30 @@ class Enumerator(object):
                         tls = TLS(tcp)
                         if TLS.is_ssl3_tls(TLS.versions[version]):
                             response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[version], cipher_list))
-                            if isinstance(response, ServerHello):
-                                hello_cipher = response.response_cipher
-                                if hello_cipher and hello_cipher in supported:
+                            if len(response) > 0:
+                                if isinstance(response[0], ServerHello):
+                                    hello_cipher = response[0].response_cipher
+                                    if hello_cipher and hello_cipher in supported:
+                                        server_hello_cipher = False
+                                        break
+                                    elif hello_cipher:
+                                        supported.append(hello_cipher)
+                                        self.print_verbose("  [+] {0}".format(hello_cipher[1]))
+                                        cipher_list.remove(hello_cipher[0])
+                                else:  # No hello received, could be an alert
                                     server_hello_cipher = False
                                     break
-                                elif hello_cipher:
-                                    supported.append(hello_cipher)
-                                    self.print_verbose("  [+] {0}".format(hello_cipher[1]))
-                                    cipher_list.remove(hello_cipher[0])
-                            else:  # No hello received, could be an alert
-                                server_hello_cipher = False
-                                break
                         elif TLS.is_ssl2(TLS.versions[version]):
                             response = tls.send_record(ClientHello(TLS.versions[version], cipher_list))
-                            if isinstance(response, ServerHello):
-                                supported = response.ssl2_response_ciphers  # ssl2 returns all ciphers at once
-                                if self.verbose:
-                                    [print("  [+] {0}".format(s[1])) for s in supported]
-                            server_hello_cipher = False
-                            break
+                            if len(response) > 0:
+                                if isinstance(response[0], ServerHello):
+                                    supported = response[0].ssl2_response_ciphers  # ssl2 returns all ciphers at once
+                                    if self.verbose:
+                                        [print("  [+] {0}".format(s[1])) for s in supported]
+                                server_hello_cipher = False
+                                break
+                            else:
+                                break
                 except AttributeError:
                     break
                 except:
@@ -1182,7 +1235,7 @@ def test(t):
     
     supported_protocols = enum.get_version_support(versions)
     for p in supported_protocols:
-        ciphers = enum.get_cipher_support(p)
+        enum.get_cipher_support(p)
 
 
 def main():
