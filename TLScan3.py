@@ -38,6 +38,7 @@
 
 import socket, errno
 import struct
+import codecs
 import os, sys, time
 import re
 import argparse
@@ -186,6 +187,60 @@ class TCP(object):
                 return None  # not a valid IP address
             return socket.AF_INET6 
         return socket.AF_INET
+
+
+class StartTLS:
+
+    def __init__(self, protocol):
+        if re.match('smtp|pop|imap', protocol):
+            self.protocol = protocol
+        else:
+            raise NotImplemented("STARTTLS not implemented for: {0}".format(protocol))
+
+    def _do_smtp_sequence(self, sock: socket):
+        buffer = codecs.decode(sock.recv(50), 'ascii')
+        ready = False
+        while not ready:
+            if re.search(r'^220 .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+                ready = True
+                break
+            more = sock.recv(50)
+            if not more:
+                print("Did not receive a complete SMTP ready message")
+                break
+            else:
+                buffer += more
+        if ready:
+            sock.sendall(b'HELO example.org\r\n')
+            response = sock.recv(100)
+            if b'250 ' in response:
+                sock.send(b'STARTTLS\r\n')
+                response = sock.recv(100)
+                if b'220 ' in response:
+                    return True
+
+    def _do_pop_sequence(self, sock: socket):
+        buffer = codecs.decode(sock.recv(100), 'ascii')
+        if re.search(r'^\+OK .*?\n$', buffer, re.MULTILINE | re.DOTALL):
+            sock.send(b'STLS\r\n')
+            response = codecs.decode(sock.recv(100), 'ascii')
+            if re.search(r'^\+OK .*?\n$', response, re.MULTILINE | re.DOTALL):
+                return True
+
+    def _do_imap_sequence(self, sock: socket):
+        buffer = codecs.decode(sock.recv(100), 'ascii')
+        if re.search(r'^\* OK .*?\n$', buffer):
+            sock.send(b'A001 STARTTLS\r\n')
+            response = sock.recv(100)
+            if b'A001 OK ' in response:
+                return True
+
+    def prepare_socket(self, tcp: socket):
+        if getattr(self, '_do_' + self.protocol + '_sequence')(tcp):
+            success = True
+        else:
+            success = False
+        return success
 
 
 class Helpers:
@@ -1202,6 +1257,7 @@ class Enumerator(object):
                                         supported.append(hello_cipher)
                                         self.print_verbose("  [+] {0}".format(hello_cipher[1]))
                                         cipher_list.remove(hello_cipher[0])
+                                        retries = 0
                                 else:  # No hello received, could be an alert
                                     server_hello_cipher = False
                                     break
@@ -1227,8 +1283,6 @@ class Enumerator(object):
                     break
                 except:
                     raise
-                else:
-                    retries = 0
         return supported
 
     def print_verbose(self, string):
@@ -1287,6 +1341,9 @@ def main():
         preamble = 'smtp'
     elif args.pop:
         preamble = 'pop'
+    elif args.imap:
+        preamble = 'imap'
+        
     t = TargetParser(args.target).get_target()
     test(t, preamble)
 
