@@ -188,8 +188,6 @@ class TCP(object):
         return socket.AF_INET
 
 
-
-
 class Helpers:
 
     @staticmethod
@@ -387,8 +385,8 @@ class ClientHello(Record):
             if TLS.is_ssl3_tls(version):
                 super(self.__class__, self).__init__((3, 1), TLS.ContentType.handshake)  # Record version set to TLSv1_0
                 self.handshake_version = version
-                self.compression = b'\x01\x00'  # Currently hardcoded
-                self.length = len(self.cipher_spec) + len(self.compression) + 41  # 32 random + 4 length + ..
+                self.compression = b'\x00'
+                self.length = len(self.cipher_spec) + len(self.compression) + 42  # 32 random + 4 length + ..
                 self.set_tls_hello_body_bytes()
 
             elif TLS.is_ssl2(version):
@@ -405,7 +403,7 @@ class ClientHello(Record):
         extension_list_bytes = self.get_extension_list_bytes()
         extension_length = b''
         if extension_list_bytes:
-            self.length = len(self.cipher_spec) + len(self.compression) + 41 + len(extension_list_bytes) + 2
+            self.length = len(self.cipher_spec) + len(self.compression) + 42 + len(extension_list_bytes) + 2
             extension_length = struct.pack('!H', len(extension_list_bytes))
         body_len = self.length - 4
         body_parts = [  # Humor?
@@ -416,6 +414,7 @@ class ClientHello(Record):
             b'\x00',
             struct.pack("!H", len(self.cipher_spec)),
             self.cipher_spec,
+            struct.pack('!B', len(self.compression)),
             self.compression,
             extension_length,
             extension_list_bytes,
@@ -441,6 +440,11 @@ class ClientHello(Record):
                 print("Something went wrong adding extension type: {0}".format(extension.extension_type))
         else:
             sys.exit("Cannot add extension to the protocol!")
+    
+    def set_compression(self, compression: bytearray):
+        if TLS.is_ssl3_tls(self.version):
+            self.compression = compression
+            self.set_tls_hello_body_bytes()
 
     def get_extension_list_bytes(self):
         """
@@ -1138,14 +1142,18 @@ class Enumerator(object):
             try:
                 with TCP(self.target.host, self.target.port).connect() as tcp:
                     tls = TLS(tcp)  # Pass a socket object (connection) to start a TLS instance
-                    if TLS.is_ssl3_tls(TLS.versions[v]):  # TODO: Change the
-                        response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[v], TLS.ciphers_tls))
+                    if TLS.is_ssl3_tls(TLS.versions[v]):
+                        client_hello = self.get_ecc_extended_client_hello(TLS.versions[v], TLS.ciphers_tls)
+                        client_hello.set_compression(bytearray(b'\x01\x00'))  # DEFLATE, null
+                        response = tls.send_record(client_hello)
                     elif TLS.is_ssl2(TLS.versions[v]):
                         response = tls.send_record(ClientHello(TLS.versions[v], TLS.ciphers_ssl2))
                     if len(response) > 0:
                         if isinstance(response[0], ServerHello) and response[0].handshake_protocol == TLS.versions[v]:
                             supported.append(v)
                             self.print_verbose("  [+]: {0}".format(v))
+                            if response[0].compression_method is not None:
+                                self.print_verbose("      Compression: {0}".format(response[0].compression_method.name))
             except AttributeError:
                 break
             except:
