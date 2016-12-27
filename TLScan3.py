@@ -149,7 +149,7 @@ class TCP(object):
         total_received = 0
         empty_buffer_count = 0
         to_receive = length
-        self.socket.settimeout(0.1)
+        self.socket.settimeout(0.2)
         while total_received < length and empty_buffer_count < 2:
             try:
                 new_data = self.socket.recv(to_receive)
@@ -1127,12 +1127,13 @@ class TLS(object):
 
 class Enumerator(object):
 
-    def __init__(self, target):
-        if not isinstance(target, Target):
-            sys.exit("Please provide a Target instance to the Enumerator")
-        else:
-            self.target = target
+    def __init__(self, target: Target):
+        self.target = target
         self.verbose = False
+        self.clear_text_layer = None
+    
+    def set_clear_text_layer(self, string):
+        self.clear_text_layer = string
 
     def get_version_support(self, version_list):
         supported = []
@@ -1141,6 +1142,8 @@ class Enumerator(object):
         for v in version_list:
             try:
                 with TCP(self.target.host, self.target.port).connect() as tcp:
+                    if self.clear_text_layer:
+                        StartTLS(self.clear_text_layer).prepare_socket(tcp.socket)
                     tls = TLS(tcp)  # Pass a socket object (connection) to start a TLS instance
                     if TLS.is_ssl3_tls(TLS.versions[v]):
                         client_hello = self.get_ecc_extended_client_hello(TLS.versions[v], TLS.ciphers_tls)
@@ -1149,11 +1152,17 @@ class Enumerator(object):
                     elif TLS.is_ssl2(TLS.versions[v]):
                         response = tls.send_record(ClientHello(TLS.versions[v], TLS.ciphers_ssl2))
                     if len(response) > 0:
-                        if isinstance(response[0], ServerHello) and response[0].handshake_protocol == TLS.versions[v]:
-                            supported.append(v)
-                            self.print_verbose("  [+]: {0}".format(v))
-                            if response[0].compression_method is not None:
-                                self.print_verbose("      Compression: {0}".format(response[0].compression_method.name))
+                        s_hello = None  # Bug-fix: the ServerHello is not always the first Record received
+                        for record in response:
+                            if isinstance(record, ServerHello):
+                                s_hello = record
+                                break
+                        if s_hello:
+                            if s_hello.handshake_protocol == TLS.versions[v]:
+                                supported.append(v)
+                                self.print_verbose("  [+]: {0}".format(v))
+                                if s_hello.compression_method is not None:
+                                    self.print_verbose("      Compression: {0}".format(s_hello.compression_method.name))
             except AttributeError:
                 break
             except:
@@ -1162,6 +1171,7 @@ class Enumerator(object):
 
     def get_cipher_support(self, version):
         supported = []
+        retries = 0
         if TLS.is_ssl3_tls(TLS.versions[version]):
             cipher_list = TLS.get_cipher_list(TLS.Protocols.TLS)
         elif TLS.is_ssl2(TLS.versions[version]):
@@ -1172,12 +1182,19 @@ class Enumerator(object):
             for c in cipher_list:
                 try:
                     with TCP(self.target.host, self.target.port).connect() as tcp:
+                        if self.clear_text_layer:
+                            StartTLS(self.clear_text_layer).prepare_socket(tcp.socket)
                         tls = TLS(tcp)
                         if TLS.is_ssl3_tls(TLS.versions[version]):
                             response = tls.send_record(self.get_ecc_extended_client_hello(TLS.versions[version], cipher_list))
                             if len(response) > 0:
-                                if isinstance(response[0], ServerHello):
-                                    hello_cipher = response[0].response_cipher
+                                s_hello = None
+                                for record in response:
+                                    if isinstance(record, ServerHello):
+                                        s_hello = record
+                                        break
+                                if s_hello:
+                                    hello_cipher = s_hello.response_cipher
                                     if hello_cipher and hello_cipher in supported:
                                         server_hello_cipher = False
                                         break
@@ -1189,8 +1206,11 @@ class Enumerator(object):
                                     server_hello_cipher = False
                                     break
                             else:  # Bug-fix
-                                server_hello_cipher = False
-                                break
+                                if retries < 3:
+                                    retries += 1
+                                else:
+                                    server_hello_cipher = False
+                                    break
                         elif TLS.is_ssl2(TLS.versions[version]):
                             response = tls.send_record(ClientHello(TLS.versions[version], cipher_list))
                             if len(response) > 0:
@@ -1207,6 +1227,8 @@ class Enumerator(object):
                     break
                 except:
                     raise
+                else:
+                    retries = 0
         return supported
 
     def print_verbose(self, string):
@@ -1232,7 +1254,7 @@ class Enumerator(object):
         return h_s_list
 
 
-def test(t):
+def test(t, preamble):
     versions = [  # High to low
         'TLSv1_2',
         'TLSv1_1',
@@ -1241,6 +1263,7 @@ def test(t):
         'SSLv2'
     ]
     enum = Enumerator(t)
+    enum.set_clear_text_layer(preamble)
     enum.verbose = True  # Enumerator will print in verbose mode
     
     supported_protocols = enum.get_version_support(versions)
@@ -1253,10 +1276,19 @@ def main():
     parser.add_argument('target', type=str, help="specify target as: host:port e.g. www.example.com:443 or "
                                                  "[::1]:443 for IPv6")
     parser.add_argument('--version', action='version', version='%(prog)s 0.21')
+    p_group = parser.add_mutually_exclusive_group()
+    p_group.add_argument('--smtp', dest='smtp', action='store_true', help='Use SMTP as protocol layer')
+    p_group.add_argument('--pop', dest='pop', action='store_true', help='Use POP(3) as protocol layer')
+    p_group.add_argument('--imap', dest='imap', action='store_true', help='Use IMAP as protocol layer')
     
     args = parser.parse_args()
+    preamble = ''
+    if args.smtp:
+        preamble = 'smtp'
+    elif args.pop:
+        preamble = 'pop'
     t = TargetParser(args.target).get_target()
-    test(t)
+    test(t, preamble)
 
 if __name__ == '__main__':
     main()
