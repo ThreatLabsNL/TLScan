@@ -40,7 +40,7 @@ import socket, errno
 import struct
 import os, sys, time
 import re
-from optparse import OptionParser
+import argparse
 try:
     from enum import Enum  # supported from Python v3.4
 except ImportError:
@@ -1057,8 +1057,7 @@ class TLS(object):
         return version
 
     def send_record(self, record_instance):
-        # response = None
-        response = []  # Changed to return a list of record objects
+        response = []  # Create a list of record objects
         if not isinstance(record_instance, Record):
             sys.exit("send_record (TLS) was not passed a Record instance")
         try:
@@ -1081,7 +1080,7 @@ class TLS(object):
                 header = self.TCP.receive_buffer(3)  # LENGTH(2), TYPE(1)
                 if header and len(header) == 3:
                     rec = Record(record_instance.version, struct.unpack('!B', header[2:3])[0])  # Version is assumed
-                    rec.length = TLS.get_ssl2_record_len(struct.unpack('!H', header[0:2])[0] - 3)  # Bugfix
+                    rec.length = TLS.get_ssl2_record_len(struct.unpack('!H', header[0:2])[0] - 3)
                     if 0 < rec.length:
                         response.append(self.get_response_record(rec))
         except socket.error as e:
@@ -1182,6 +1181,9 @@ class Enumerator(object):
                                 else:  # No hello received, could be an alert
                                     server_hello_cipher = False
                                     break
+                            else:  # Bug-fix
+                                server_hello_cipher = False
+                                break
                         elif TLS.is_ssl2(TLS.versions[version]):
                             response = tls.send_record(ClientHello(TLS.versions[version], cipher_list))
                             if len(response) > 0:
@@ -1192,6 +1194,7 @@ class Enumerator(object):
                                 server_hello_cipher = False
                                 break
                             else:
+                                server_hello_cipher = False
                                 break
                 except AttributeError:
                     break
@@ -1231,7 +1234,7 @@ def test(t):
         'SSLv2'
     ]
     enum = Enumerator(t)
-    enum.verbose = True  # Enumerator will now visualise in verbose mode
+    enum.verbose = True  # Enumerator will print in verbose mode
     
     supported_protocols = enum.get_version_support(versions)
     for p in supported_protocols:
@@ -1239,20 +1242,14 @@ def test(t):
 
 
 def main():
-    default_port = 443
-    usage = 'Usage: %prog -t <host>:<port> [ options ]'
-    version = "v0.2"
-    parser = OptionParser(usage=usage, version=version)
-    parser.add_option("-t", "--target", type="string", help="specify target as: host:port e.g. www.example.com:443 "
-                                                            "or [::1]:443 for IPv6", dest="target")
-    (options, args) = parser.parse_args()
-    target = options.target
-    if target:
-        t = TargetParser(target).get_target()
-        test(t)
-    else:
-        parser.print_usage()
-        sys.exit(0)
+    parser = argparse.ArgumentParser(description='Scanner to enumerate encryption protocol support', prog='TLScan3')
+    parser.add_argument('target', type=str, help="specify target as: host:port e.g. www.example.com:443 or "
+                                                 "[::1]:443 for IPv6")
+    parser.add_argument('--version', action='version', version='%(prog)s 0.21')
+    
+    args = parser.parse_args()
+    t = TargetParser(args.target).get_target()
+    test(t)
 
 if __name__ == '__main__':
     main()
