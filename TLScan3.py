@@ -148,9 +148,9 @@ class TCP(object):
         timeout_retries = 0
         total_received = 0
         empty_buffer_count = 0
-        to_receive = length  # Initial value
-        self.socket.settimeout(0.02)
-        while total_received < length and empty_buffer_count < 3:
+        to_receive = length
+        self.socket.settimeout(0.1)
+        while total_received < length and empty_buffer_count < 2:
             try:
                 new_data = self.socket.recv(to_receive)
                 if new_data:
@@ -158,16 +158,15 @@ class TCP(object):
                     total_received = len(data)
                     to_receive = length - total_received if length > total_received else 0
                     del new_data
-                else:  # Nothing in tha buffer
-                    if len(data) == 0:
-                        empty_buffer_count += 1
+                else:
+                    empty_buffer_count += 1
             except socket.timeout:
-                if len(data) == 0 and timeout_retries < 2:
+                if len(data) == 0 and timeout_retries == 2:
                     break
                 timeout_retries += 1
-                if timeout_retries == 3:
+                if timeout_retries == 2:
                     break
-        self.socket.settimeout(None)
+        self.socket.settimeout(self.timeout)
         return data
 
     def __enter__(self):
