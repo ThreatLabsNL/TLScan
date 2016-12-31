@@ -250,6 +250,31 @@ class Helpers:
         return (input_string[0 + i:length + i] for i in range(0, len(input_string), length))
 
 
+class Cipher(object):
+
+    def __init__(self, cipher: tuple):
+        self.bytes = cipher[0]
+        self.name = cipher[1]
+        pass
+
+    @property
+    def bits(self):  # This covers most usual ciphers
+        if re.search('WITH_NULL', self.name):
+            return None
+        elif re.search('(_40_|DES40)', self.name):
+            return 40
+        elif re.search('(_56_|DES_CBC_(?!40))', self.name):
+            return 56
+        elif re.search('3DES', self.name):
+            return 112  # theoretically 168
+        elif re.search('(IDEA_CBC|SEED_CBC|^TLS.*?_128_)', self.name):
+            return 128
+        elif re.search('(_256_|CHACHA20)', self.name):
+            return 256
+        else:
+            return None
+            
+
 class Extension(object):
     """
     rfc6066
@@ -548,9 +573,9 @@ class ServerHello(Record):
         start = struct.unpack('!b', self.body[38:39])[0] + 39  # SID_LENGTH + 39 Bytes
         cipher = self.body[start:start+2]
         if cipher in TLS.ciphers_tls:
-            return cipher, TLS.ciphers_tls[cipher]
+            return Cipher((cipher, TLS.ciphers_tls[cipher]))
         else:
-            return cipher, "UNKNOWN_CIPHER"
+            return Cipher((cipher, 'UNKNOWN_CIPHER'))
 
     @property
     def ssl2_response_ciphers(self):  # Add check to see if version is SSLv2
@@ -1255,8 +1280,9 @@ class Enumerator(object):
                                         break
                                     elif hello_cipher:
                                         supported.append(hello_cipher)
-                                        self.print_verbose("  [+] {0}".format(hello_cipher[1]))
-                                        cipher_list.remove(hello_cipher[0])
+                                        self.print_verbose("  [+] {0} ({1} bits)".format(hello_cipher.name,
+                                                                                         hello_cipher.bits))
+                                        cipher_list.remove(hello_cipher.bytes)
                                         retries = 0
                                 else:  # No hello received, could be an alert
                                     server_hello_cipher = False
@@ -1343,9 +1369,15 @@ def main():
         preamble = 'pop'
     elif args.imap:
         preamble = 'imap'
-        
-    t = TargetParser(args.target).get_target()
-    test(t, preamble)
+    
+    try:
+        t = TargetParser(args.target).get_target()
+        test(t, preamble)
+    except KeyboardInterrupt:
+        print("[!] Received termination signal, exiting!")
+        sys.exit(3)
+    except:
+        raise
 
 if __name__ == '__main__':
     main()
