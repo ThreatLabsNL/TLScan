@@ -167,8 +167,8 @@ class NamedGroup(Enum):  # rfc8446
     secp256r1 = 0x0017
     secp384r1 = 0x0018
     secp521r1 = 0x0019
-    x25519 = 0x001D
-    x448 = 0x001E
+    x25519 = 0x001D  # 128 bits
+    x448 = 0x001E  # 244 bits
     # Finite Field Groups(DHE)
     ffdhe2048 = 0x0100
     ffdhe3072 = 0x0101

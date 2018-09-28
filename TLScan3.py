@@ -4,6 +4,10 @@ from argparse import ArgumentParser
 from scanner import TargetParser, Enumerator
 from TLS.protocols import versions as p_versions
 
+# ToDo
+# cipher preference
+# certificate details (e.g. pub-key, expiry)
+
 
 def test(target, preamble):
 

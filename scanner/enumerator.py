@@ -151,14 +151,15 @@ class Enumerator(object):
                                                 if extension.extension_type == ExtensionType.supported_versions:
                                                     break
                                         '''
-
                                         supported.append(hello_cipher)
                                         # This is ugly but hey it's not the only thing...
                                         if s_key_exchange:
-                                            self.print_verbose("  [+] {0} ({1} bits) - {dh}{curve}{2} bits".
+                                            self.print_verbose("  [+] {0} ({1} bits) - {dh}{curve}{bits}".
                                                                format(hello_cipher.name,
                                                                       hello_cipher.bits,
-                                                                      s_key_exchange.key_length()*8,
+                                                                      bits="{} bits".
+                                                                      format(s_key_exchange.key_length()*8)
+                                                                      if not s_key_exchange.elliptic else "",
                                                                       dh="ECDH" if s_key_exchange.elliptic else "DH",
                                                                       curve=" {} ".format(s_key_exchange.
                                                                                           named_curve.name)
