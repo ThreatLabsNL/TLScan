@@ -7,6 +7,8 @@ from TLS.protocols import versions as p_versions
 # ToDo
 # cipher preference
 # certificate details (e.g. pub-key, expiry)
+# timestamp
+# SVSC check
 
 
 def test(target, preamble):
@@ -18,6 +20,12 @@ def test(target, preamble):
     enum.verbose = True  # Enumerator will print in verbose mode
 
     supported_protocols = enum.get_version_support(versions)
+
+    if len(supported_protocols) == 0:  # Try again with SNI extension disabled
+        enum.sni = False
+        tt = reversed(p_versions)
+        supported_protocols = enum.get_version_support(tt)
+
     for p in supported_protocols:
         enum.get_cipher_support(p)
 
@@ -48,7 +56,11 @@ def main():
         preamble = 'ftp'
 
     try:
-        t = TargetParser(args.target).get_target()
+        try:
+            t = TargetParser(args.target).get_target()
+        except ValueError:
+            print("[!] Failed to parse target, adding default port (443)")
+            t = TargetParser(args.target + ":443").get_target()
         test(t, preamble)
     except KeyboardInterrupt:
         print("[!] Received termination signal, exiting!")
