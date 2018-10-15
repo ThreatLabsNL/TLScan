@@ -48,6 +48,7 @@ class TLSConnection(object):
                     if 0 < rec.length:
                         response.append(self.get_response_record(rec))
         except socket.error as e:
+            # ToDo raise exception
             if e.errno == errno.ECONNRESET:  # 54; Microsoft sometimes just resets the connection
                 msg = "Connection reset"  # Usually means: not supported or not an acceptable offer
                 pass
@@ -55,25 +56,42 @@ class TLSConnection(object):
                 msg = "Connection refused"
             else:
                 raise e
+            # print(msg)
         return response
 
     # ToDo refactor to read_response_record
     def get_response_record(self, record):
         response = record
-        buffer = self.TCP.receive_buffer(record.length)
+        buffer = self.TCP.receive_buffer(record.length)  # obtain the whole record
         if buffer:
             record.body = buffer
             if Protocol.is_ssl3_tls(record.version):
                 if record.content_type == ContentType.handshake:
+                    msg_start = 0
                     if record.body[0] == HandshakeType.server_hello:
                         response = ServerHello(record.version, record.body)
                         self.kex_algorithm = response.kex_algorithm()
+                        # Workaround/hack for multiple messages inside the record_layer
+                        while record.length > msg_start:
+                            message = None
+                            msg_len = struct.unpack('!I', b'\x00' + record.body[msg_start + 1:msg_start + 4])[0]
+                            if record.body[msg_start] == HandshakeType.server_hello:
+                                message = ServerHello(record.version, record.body[msg_start:msg_start+msg_len])
+                                self.kex_algorithm = response.kex_algorithm()  # set the key exchange algo for the connection
+                            elif record.body[0] == HandshakeType.certificate:
+                                message = Certificate(record.version, record.body[msg_start:msg_start+msg_len])
+                            elif record.body[msg_start] == HandshakeType.server_key_exchange:
+                                message = ServerKeyExchange(record.version, record.body[msg_start:msg_start+msg_len],
+                                                            self.kex_algorithm)
+                            if message:
+                                response.messages.append(message)
+                            # (handshake_type + length_field) 4 bytes
+                            msg_start = msg_start + 4 + msg_len
+
                     elif record.body[0] == HandshakeType.certificate:
                         response = Certificate(record.version, record.body)
                     elif record.body[0] == HandshakeType.server_key_exchange:
-                    #    print("got server kex pre")
                         response = ServerKeyExchange(record.version, record.body, self.kex_algorithm)
-                    #    print("got server kex post")
                 elif record.content_type == ContentType.alert:
                     self.print_verbose("Received an alert!")  # TODO: return alert object
                 else:

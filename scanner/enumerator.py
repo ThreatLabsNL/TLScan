@@ -16,16 +16,22 @@ class Enumerator(object):
         self.target = target
         self.verbose = False
         self.clear_text_layer = None
+        self.sni = True
 
     def set_clear_text_layer(self, string):
         self.clear_text_layer = string
 
     def get_version_support(self, version_list):
+        #for version in iter(version_list):
+        #    print(version)
         supported = []
         self.print_verbose("Enumerating TLS/SSL version support for: {0} port {1}"
                            .format(self.target.host, self.target.port))
+        if self.sni:
+            self.print_verbose("[i] Uing SNI: '{}'".format(self.target.host))
+        else:
+            self.print_verbose("[i] SNI extension disabled.")
         for v in version_list:
-            # try:
             with TCP(self.target.host, self.target.port).connect() as tcp:
                 if self.clear_text_layer:
                     stls = StartTLS(self.clear_text_layer)
@@ -55,15 +61,13 @@ class Enumerator(object):
                             self.print_verbose("  [+]: {0}".format(v))
                             if s_hello.compression_method is not None:
                                 self.print_verbose("      Compression: {0}".format(s_hello.compression_method.name))
-                        if Protocol.is_tls1_3(versions[v]):  # Need to see if extension is present
+                        if Protocol.is_tls1_3(versions[v]) and \
+                                s_hello.extensions_length > 0:  # Need to see if extension is present
                             for extension in s_hello.extensions():
                                 if extension.extension_type == ExtensionType.supported_versions:
                                     supported.append(v)
                                     self.print_verbose("  [+]: {0}".format(v))
-            # except AttributeError:
-            #    break
-            # except:
-            #    raise
+
         return supported
 
     def print_verbose(self, string):
@@ -76,8 +80,10 @@ class Enumerator(object):
         client_hello.add_extension(EllipticCurves(NamedCurve))
         client_hello.add_extension(ECPointFormats(ECPointFormat))
         client_hello.add_extension(SignatureAlgorithms(Enumerator.get_hash_sig_list()))
-        client_hello.add_extension(ServerName(self.target.host))
+        if self.sni:
+            client_hello.add_extension(ServerName(self.target.host))
         client_hello.add_extension(HeartBeat(True))
+        client_hello.add_extension(SessionTicketTLS())
         return client_hello
 
     # ToDo remove overlap with above ?
@@ -91,7 +97,8 @@ class Enumerator(object):
         #                                           ECPointFormat.ansiX962_compressed_prime,
         #                                           ECPointFormat.ansiX962_compressed_char2]))
         client_hello.add_extension(SignatureAlgorithmsTLS13(SignatureScheme))
-        client_hello.add_extension(ServerName(self.target.host))
+        if self.sni:
+            client_hello.add_extension(ServerName(self.target.host))
         client_hello.add_extension(HeartBeat(True))
         client_hello.add_extension(SessionTicketTLS())  # Empty ticket
         client_hello.add_extension(EncryptThenMAC())
@@ -139,6 +146,10 @@ class Enumerator(object):
                                         s_hello = record
                                     elif isinstance(record, ServerKeyExchange):
                                         s_key_exchange = record
+                                    for message in record.messages:
+                                        if isinstance(message, ServerKeyExchange):
+                                            s_key_exchange = message
+                                            break
                                 if s_hello:
                                     hello_cipher = s_hello.response_cipher
                                     if hello_cipher and hello_cipher in supported:
@@ -196,6 +207,9 @@ class Enumerator(object):
                 except:
                     raise
         return supported
+
+    def cipher_preference(self):
+        pass  # ToDo
 
     @staticmethod
     def get_hash_sig_list():

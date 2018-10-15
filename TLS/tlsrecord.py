@@ -17,6 +17,7 @@ class Record(object):
         self.length = 0
         self.body = body
         self.body_info = {}  # To hold details about the body
+        self.messages = []
 
     def get_bytes(self):
         record_parts = []
@@ -52,10 +53,11 @@ class ClientHello(Record):
                 if Protocol.is_tls1_3(version):
                     # TLS1.3 uses 'legacy version' TLS1.2 for the record layer
                     super(self.__class__, self).__init__(versions['TLSv1_2'], ContentType.handshake)
+                    self.handshake_version = versions['TLSv1_2']
                 else:
                     # Record version set to TLSv1_0
                     super(self.__class__, self).__init__(versions['TLSv1_0'], ContentType.handshake)
-                self.handshake_version = version
+                    self.handshake_version = version
                 self.compression = b'\x00'
                 self.length = len(self.cipher_spec) + len(self.compression) + 42  # 32 random + 4 length + ..
                 self._set_tls_hello_body_bytes()
@@ -71,10 +73,16 @@ class ClientHello(Record):
             raise Exception("Failed to craft ClientHello")
 
     def _set_tls_hello_body_bytes(self):
+        # ToDo change the way the length is calculated/determined
         extension_list_bytes = self.get_extension_list_bytes()
         extension_length = b''
+        # ToDo, make method for sessionid
+        session_id = b'\x37\x4d\x00\x00\xa0\xa0\xee\x98\x19\x53\x5f\x7e\x87\x4d\x01\xae' \
+                     b'\xfc\x0a\x94\x67\x17\x98\x5f\x4f\x12\xf0\x1a\xb6\x0f\x04\xd5\xe8'
         if extension_list_bytes:
-            self.length = len(self.cipher_spec) + len(self.compression) + 42 + len(extension_list_bytes) + 2
+            # self.length = len(self.cipher_spec) + len(self.compression) + 42 + len(extension_list_bytes) + 2
+            self.length = len(self.cipher_spec) + len(self.compression) + 42 + len(extension_list_bytes)\
+                          + 2 + len(session_id)  # Dirty poc
             extension_length = struct.pack('!H', len(extension_list_bytes))
         body_len = self.length - 4
         body_parts = [  # Humor?
@@ -82,7 +90,9 @@ class ClientHello(Record):
             struct.pack("!L", body_len)[1:],
             bytes(self.handshake_version),
             self.hello_rand,
-            b'\x00',
+            #b'\x00',  # session_id length
+            b'\x20',  # poc session_id length
+            session_id,  # proof of concept session id
             struct.pack("!H", len(self.cipher_spec)),
             self.cipher_spec,
             struct.pack('!B', len(self.compression)),
@@ -206,7 +216,12 @@ class ServerHello(Record):
     @property
     def extensions_length(self):
         start = 39 + self.session_id_length + 3
-        return struct.unpack('!H', self.body[start:start + 2])[0]
+        length = 0
+        try:
+            length = struct.unpack('!H', self.body[start:start + 2])[0]
+        except struct.error:
+            pass
+        return length
 
     def extensions(self):
         extensions = []
@@ -278,6 +293,7 @@ class ServerKeyExchange(Record):
                 self.key_exchange_algorithm == KeyExchangeAlgorithm.dhe_dss or \
                 self.key_exchange_algorithm == KeyExchangeAlgorithm.dh_anon:
             # TYPE(1), LENGTH(3), pLENGTH(2), p, gLENGTH(1), g, pubkeyLENGTH(2)
+            # print(struct.unpack('!I', b'\x00' + self.body[1:4])[0])
             p_length = struct.unpack('!H', self.body[4:6])[0]
             g_length = struct.unpack('!H', self.body[p_length+6:p_length+8])[0]
             length = struct.unpack('!H', self.body[p_length+8+g_length:p_length+8+g_length+2])[0]
