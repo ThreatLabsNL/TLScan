@@ -10,6 +10,7 @@ from TLS.protocols import Protocol
 - TLS_CHACHA20_POLY1305_SHA256 (should)
 '''
 
+TLS_FALLBACK_SCSV = (b'\x56\x00', 'TLS_FALLBACK_SCSV')
 
 ciphers_ssl2 = {
     b'\x01\x00\x80': 'SSL2_RC4_128_WITH_MD5',
@@ -390,7 +391,7 @@ ciphers_tls = {
     b'\xD0\x01': 'TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256',
     b'\xD0\x02': 'TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384',
     b'\xD0\x03': 'TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256',
-    ## 0xD0,0x04 Unassigned
+    # 0xD0,0x04 Unassigned
     b'\xD0\x05': 'TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256',
 
     b'\xFF\x01': 'TLS_RSA_WITH_28147_CNT_GOST94',

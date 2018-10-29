@@ -7,24 +7,21 @@ from TLS.protocols import versions as p_versions
 # ToDo
 # cipher preference
 # certificate details (e.g. pub-key, expiry)
-# timestamp
-# SVSC check
 
 
 def test(target, preamble):
-
-    versions = reversed(p_versions)
 
     enum = Enumerator(target)
     enum.set_clear_text_layer(preamble)
     enum.verbose = True  # Enumerator will print in verbose mode
 
-    supported_protocols = enum.get_version_support(versions)
+    supported_protocols = enum.get_version_support(reversed(p_versions))
 
-    if len(supported_protocols) == 0:  # Try again with SNI extension disabled
+    if len(supported_protocols) == 0:  # Try again with SNI extension disabled (all following actions will not use SNI)
         enum.sni = False
-        tt = reversed(p_versions)
-        supported_protocols = enum.get_version_support(tt)
+        supported_protocols = enum.get_version_support(reversed(p_versions))
+
+    enum.check_fallback_support(supported_protocols)
 
     for p in supported_protocols:
         enum.get_cipher_support(p)
@@ -59,7 +56,7 @@ def main():
         try:
             t = TargetParser(args.target).get_target()
         except ValueError:
-            print("[!] Failed to parse target, adding default port (443)")
+            print("[!] Failed to parse target, trying again by adding a default port (443)")
             t = TargetParser(args.target + ":443").get_target()
         test(t, preamble)
     except KeyboardInterrupt:
