@@ -1,4 +1,4 @@
-from datetime import datetime
+
 
 from scanner import Target
 
@@ -12,6 +12,14 @@ from TLS.constants import PskKeyExchangeMode, ContentType
 from TLS.tcp import TCP, StartTLS
 
 
+start_tls = {
+    'smtp': [25, 587],
+    'pop': [110],
+    'imap': [143],
+    'mssql': [1433],
+    'ftp': [21]
+}
+
 class Enumerator(object):
 
     def __init__(self, target: Target):
@@ -20,12 +28,13 @@ class Enumerator(object):
         self.clear_text_layer = None
         self.sni = True
 
-    def set_clear_text_layer(self, string):
-        self.clear_text_layer = string
+    def set_clear_text_layer(self, preamble):
+        if preamble:
+            self.clear_text_layer = preamble
+            self.print_verbose("  [i] Using STARTTLS sequence for {}".format(preamble.upper()))
 
     def get_version_support(self, version_list):
         supported = []
-        self.print_verbose("Starting enumeration at: {}".format(datetime.now().strftime('%d-%m-%Y %H:%M:%S')))
         if self.sni:
             self.print_verbose("  [i] Using SNI: '{}'".format(self.target.host))
         else:

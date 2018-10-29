@@ -1,12 +1,17 @@
 from sys import exit
 from argparse import ArgumentParser
+from datetime import datetime
 
-from scanner import TargetParser, Enumerator
+from scanner import TargetParser, Enumerator, start_tls
 from TLS.protocols import versions as p_versions
 
 # ToDo
 # cipher preference
 # certificate details (e.g. pub-key, expiry)
+
+
+def print_start():
+    print("Starting enumeration at: {}".format(datetime.now().strftime('%d-%m-%Y %H:%M:%S')))
 
 
 def test(target, preamble):
@@ -15,10 +20,20 @@ def test(target, preamble):
     enum.set_clear_text_layer(preamble)
     enum.verbose = True  # Enumerator will print in verbose mode
 
+    print_start()
     supported_protocols = enum.get_version_support(reversed(p_versions))
+
+    if len(supported_protocols) == 0:
+        for key, value in start_tls.items():
+            if int(target.port) in value:  # Try again: adding a clear-text protocol for the port
+                print_start()
+                enum.set_clear_text_layer(key)
+                supported_protocols = enum.get_version_support(reversed(p_versions))
+                break
 
     if len(supported_protocols) == 0:  # Try again with SNI extension disabled (all following actions will not use SNI)
         enum.sni = False
+        print_start()
         supported_protocols = enum.get_version_support(reversed(p_versions))
 
     enum.check_fallback_support(supported_protocols)
@@ -33,24 +48,20 @@ def main():
                                                  "[::1]:443 for IPv6")
     parser.add_argument('--version', action='version', version='%(prog)s 3.1')
     p_group = parser.add_mutually_exclusive_group()
-    p_group.add_argument('--smtp', dest='smtp', action='store_true', help='Use SMTP as protocol layer')
-    p_group.add_argument('--pop', dest='pop', action='store_true', help='Use POP(3) as protocol layer')
-    p_group.add_argument('--imap', dest='imap', action='store_true', help='Use IMAP as protocol layer')
-    p_group.add_argument('--mssql', dest='mssql', action='store_true', help='Use MSSQL as protocol layer')
-    p_group.add_argument('--ftp', dest='ftp', action='store_true', help='Use FTP as protocol layer')
+    for key, value in start_tls.items():
+        p_group.add_argument("--{}".format(key), dest=key, action='store_true',
+                             help='Use {} as protocol layer'.format(key.upper()))
 
     args = parser.parse_args()
-    preamble = ''
-    if args.smtp:
-        preamble = 'smtp'
-    elif args.pop:
-        preamble = 'pop'
-    elif args.imap:
-        preamble = 'imap'
-    elif args.mssql:
-        preamble = 'mssql'
-    elif args.ftp:
-        preamble = 'ftp'
+    preamble = None
+
+    for key, value in start_tls.items():
+        try:
+            if getattr(args, key):
+                preamble = key
+                break
+        except AttributeError:
+            pass
 
     try:
         try:

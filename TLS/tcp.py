@@ -90,7 +90,6 @@ class StartTLS:
             # print("Option token: Encryption is present")
             offset = struct.unpack('!H', message[6:8])[0]
             if message[offset] == 1:
-                # print("STARTTLS seems supported")
                 tcp.wrapper = TDS7Wrapper(tds7)  # ToDo remove the need of passing tds7
                 return True
 
