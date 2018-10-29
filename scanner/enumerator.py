@@ -20,6 +20,7 @@ start_tls = {
     'ftp': [21]
 }
 
+
 class Enumerator(object):
 
     def __init__(self, target: Target):
@@ -27,6 +28,7 @@ class Enumerator(object):
         self.verbose = False
         self.clear_text_layer = None
         self.sni = True
+        self.sni_name = target.host
 
     def set_clear_text_layer(self, preamble):
         if preamble:
@@ -36,7 +38,7 @@ class Enumerator(object):
     def get_version_support(self, version_list):
         supported = []
         if self.sni:
-            self.print_verbose("  [i] Using SNI: '{}'".format(self.target.host))
+            self.print_verbose("  [i] Using SNI: '{}'".format(self.sni_name))
         else:
             self.print_verbose("  [i] SNI extension disabled.")
 
@@ -222,7 +224,7 @@ class Enumerator(object):
         client_hello.add_extension(ECPointFormats(ECPointFormat))
         client_hello.add_extension(SignatureAlgorithms(Enumerator.get_hash_sig_list()))
         if self.sni:
-            client_hello.add_extension(ServerName(self.target.host))
+            client_hello.add_extension(ServerName(self.sni_name))
         client_hello.add_extension(HeartBeat(True))
         client_hello.add_extension(SessionTicketTLS())
         return client_hello
@@ -235,7 +237,7 @@ class Enumerator(object):
         client_hello.add_extension(ECPointFormats(ECPointFormat))
         client_hello.add_extension(SignatureAlgorithmsTLS13(SignatureScheme))
         if self.sni:
-            client_hello.add_extension(ServerName(self.target.host))
+            client_hello.add_extension(ServerName(self.sni_name))
         client_hello.add_extension(HeartBeat(True))
         client_hello.add_extension(SessionTicketTLS())
         client_hello.add_extension(EncryptThenMAC())

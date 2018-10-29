@@ -8,15 +8,18 @@ from TLS.protocols import versions as p_versions
 # ToDo
 # cipher preference
 # certificate details (e.g. pub-key, expiry)
+# encrypted sni
 
 
 def print_start():
     print("Starting enumeration at: {}".format(datetime.now().strftime('%d-%m-%Y %H:%M:%S')))
 
 
-def test(target, preamble):
+def test(target, preamble, sni_name):
 
     enum = Enumerator(target)
+    if sni_name:
+        enum.sni_name = sni_name
     enum.set_clear_text_layer(preamble)
     enum.verbose = True  # Enumerator will print in verbose mode
 
@@ -51,6 +54,7 @@ def main():
     for key, value in start_tls.items():
         p_group.add_argument("--{}".format(key), dest=key, action='store_true',
                              help='Use {} as protocol layer'.format(key.upper()))
+    parser.add_argument('--sni', type=str, dest='sni', help="SNI name to use in the handshake")
 
     args = parser.parse_args()
     preamble = None
@@ -69,7 +73,7 @@ def main():
         except ValueError:
             print("[!] Failed to parse target, trying again by adding a default port (443)")
             t = TargetParser(args.target + ":443").get_target()
-        test(t, preamble)
+        test(t, preamble, args.sni)
     except KeyboardInterrupt:
         print("[!] Received termination signal, exiting!")
         exit(3)
