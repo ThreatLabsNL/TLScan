@@ -78,7 +78,7 @@ class TLSConnection(object):
                             if record.body[msg_start] == HandshakeType.server_hello:
                                 message = ServerHello(record.version, record.body[msg_start:msg_start+msg_len])
                                 self.kex_algorithm = response.kex_algorithm()  # set the key exchange algo for the connection
-                            elif record.body[0] == HandshakeType.certificate:
+                            elif record.body[msg_start] == HandshakeType.certificate:
                                 message = Certificate(record.version, record.body[msg_start:msg_start+msg_len])
                             elif record.body[msg_start] == HandshakeType.server_key_exchange:
                                 message = ServerKeyExchange(record.version, record.body[msg_start:msg_start+msg_len],
