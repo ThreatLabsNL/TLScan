@@ -11,13 +11,15 @@ from TLS.constants import NamedCurve, NamedGroup, ECPointFormat, HashAlgorithm, 
 from TLS.constants import PskKeyExchangeMode, ContentType
 from TLS.tcp import TCP, StartTLS
 
+from ASN1 import x509
 
 start_tls = {
     'smtp': [25, 587],
     'pop': [110],
     'imap': [143],
     'mssql': [1433],
-    'ftp': [21]
+    'ftp': [21],
+    'rdp': [3389],
 }
 
 
@@ -33,14 +35,14 @@ class Enumerator(object):
     def set_clear_text_layer(self, preamble):
         if preamble:
             self.clear_text_layer = preamble
-            self.print_verbose("  [i] Using STARTTLS sequence for {}".format(preamble.upper()))
+            self.print_verbose("  [*] Using STARTTLS sequence for {}".format(preamble.upper()))
 
     def get_version_support(self, version_list):
         supported = []
         if self.sni:
-            self.print_verbose("  [i] Using SNI: '{}'".format(self.sni_name))
+            self.print_verbose("  [*] Using SNI: '{}'".format(self.sni_name))
         else:
-            self.print_verbose("  [i] SNI extension disabled.")
+            self.print_verbose("  [*] SNI extension disabled.")
 
         self.print_verbose("Enumerating TLS/SSL protocol version support for: {0} port {1}"
                            .format(self.target.host, self.target.port))
@@ -147,11 +149,33 @@ class Enumerator(object):
                     raise
         return supported
 
-    def check_fallback_support(self, supported_protocols):
-        # Experimental
+    # ToDo: Make SSLv2 proof
+    def get_certificate(self, protocol):
+        self.print_verbose("Subject certificate details")
+        response = self.send_client_hello(protocol, ciphers_tls=ciphers_tls)
+        certificate = None
+        cert = None
+        if len(response) > 0:
+            for record in response:
+                if isinstance(record, ServerHello):
+                    for message in record.messages:  # There may be nested handshake_messages
+                        if isinstance(message, Certificate):
+                            cert = message.certificates()[0]  # The sender's certificate MUST come first in the list.
+                            break
+                elif isinstance(record, Certificate):
+                    cert = record.certificates()[0]
+                    break
+            if cert:
+                certificate = x509.get_x509_from_bytes(cert)
+                if self.verbose:
+                    certificate.pretty_print(indent='  ')
+        return certificate
+
+    def check_fallback_support(self, supported_protocols):  # Experimental
         cipher_list = dict(ciphers_tls)  # Make a copy as we are going to add a cipher
         cipher_list[TLS_FALLBACK_SCSV[0]] = TLS_FALLBACK_SCSV[1]
         svsc_supported = False
+
         if len(supported_protocols) >= 2:  # Else there is nothing to downgrade
             test_protocol = supported_protocols[1]  # Index 0 should be the highest supported protocol version
 
@@ -159,13 +183,12 @@ class Enumerator(object):
 
             if len(response) > 0:
                 s_hello = None
-                # The ServerHello may not be the first Record received
                 for record in response:
                     if isinstance(record, ServerHello):
                         s_hello = record
                         break
                     elif record.content_type == ContentType.alert:
-                        # and record.alert_description # ToDo
+                        # and record.alert_description # ToDo?
                         svsc_supported = True
                         self.print_verbose("  [+] TLS_FALLBACK_SCSV supported (received Alert).")
                 if s_hello:
@@ -190,7 +213,7 @@ class Enumerator(object):
                                format(cipher.name, cipher.bits, bits="{} bits".
                                       format(s_kex.key_length() * 8)
                                       if not s_kex.elliptic else "",
-                                      dh="ECDH" if s_kex.elliptic else "DH",
+                                      dh="ECDH" if s_kex.elliptic else "DHE",
                                       curve=" {} ".format(s_kex.named_curve.name)
                                       if s_kex.elliptic else " "))
         else:
