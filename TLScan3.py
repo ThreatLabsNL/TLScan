@@ -7,8 +7,7 @@ from TLS.protocols import versions as p_versions
 
 # ToDo
 # cipher preference
-# certificate details (e.g. pub-key, expiry)
-# encrypted sni
+# encrypted sni (https://tools.ietf.org/html/draft-ietf-tls-esni-02)
 
 
 def print_start():
@@ -43,6 +42,11 @@ def test(target, preamble, sni_name):
 
     for p in supported_protocols:
         enum.get_cipher_support(p)
+
+    if p_versions[supported_protocols[0]] == p_versions['TLSv1_3'] and len(supported_protocols) > 1:
+        enum.get_certificate(supported_protocols[1])
+    else:
+        enum.get_certificate(supported_protocols[0])
 
 
 def main():
