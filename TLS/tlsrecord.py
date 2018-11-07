@@ -257,8 +257,15 @@ class Certificate(Record):
         return length
 
     def certificates(self):
-        # ToDo
-        pass
+        certificates = []
+        cursor = 7
+        while cursor < self.certificates_length:
+            cert_length = struct.unpack('!i', b'\x00' + self.body[cursor:cursor + 3])[0]
+            cursor = cursor + 3
+            cert = self.body[cursor:cursor + cert_length]
+            cursor = cursor + cert_length
+            certificates.append(cert)
+        return certificates
 
 
 class ServerKeyExchange(Record):
