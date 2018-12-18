@@ -3,6 +3,7 @@ import errno
 import struct
 import re
 import codecs
+from contextlib import suppress
 
 
 class TCP(object):
@@ -74,7 +75,7 @@ class TCP(object):
 class StartTLS:
 
     def __init__(self, protocol):
-        if re.match('smtp|pop|imap|mssql|ftp', protocol):
+        if re.match('smtp|pop|imap|mssql|ftp|rdp', protocol):
             self.protocol = protocol
         else:
             raise NotImplemented("STARTTLS not implemented for: {0}".format(protocol))
@@ -141,6 +142,15 @@ class StartTLS:
             sock.send(b'AUTH TLS\r\n')
             response = sock.recv(100)
             if b'234' in response:
+                return True
+
+    # ToDo test
+    def _do_rdp_sequence(self, tcp: TCP):
+        sock = tcp.socket
+        sock.send(b'\x03\x00\x00\x13\x0e\xe0\x00\x00\x00\x00\x00\x01\x00\x08\x00\x03\x00\x00\x00')
+        with suppress(Exception):
+            response = sock.recv(19)
+            if response[15] == 2 or response[15] == 3:
                 return True
 
     def prepare_socket(self, tcp):
