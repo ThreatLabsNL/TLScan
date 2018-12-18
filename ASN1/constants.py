@@ -14,6 +14,7 @@ class UniversalTag(Enum):  # http://obj-sys.com/asn1tutorial/node124.html
     SET = 17
     NumericString = 18
     PrintableString = 19
+    TeletexString = 20
     IA5String = 22
     UCTTime = 23
     UNICODE_STRING = 30
