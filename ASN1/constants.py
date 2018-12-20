@@ -17,6 +17,7 @@ class UniversalTag(Enum):  # http://obj-sys.com/asn1tutorial/node124.html
     TeletexString = 20
     IA5String = 22
     UCTTime = 23
+    GeneralizedTime = 24
     UNICODE_STRING = 30
 
 
