@@ -184,7 +184,7 @@ class Enumerator(object):
         supported = False
 
         if len(supported_protocols) >= 2:  # Else there is nothing to downgrade
-            test_protocol = supported_protocols[1]  # Index 0 should be the highest supported protocol version
+            test_protocol = supported_protocols[-1]  # Index 0 should be the highest supported protocol version
             response = self.send_client_hello(test_protocol, ciphers_tls=cipher_list)
 
             if len(response) > 0:
