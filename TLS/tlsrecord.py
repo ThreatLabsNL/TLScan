@@ -5,7 +5,7 @@ import os
 from TLS.protocols import Protocol, versions
 from TLS.extensions import Extension
 from TLS.ciphers import Cipher, ciphers_ssl2, ciphers_tls
-from TLS.constants import HandshakeType, HandshakeTypeSsl2, ContentType, CompressionMethod, NamedCurve
+from TLS.constants import HandshakeType, HandshakeTypeSsl2, ContentType, CompressionMethod, NamedGroup
 from TLS.constants import KeyExchangeAlgorithm
 
 
@@ -168,6 +168,7 @@ class ServerHello(Record):
         for kex in KeyExchangeAlgorithm:
             if "TLS_{0}".format(kex.value) in self.response_cipher.name:
                 return kex
+    @property
 
     @property
     def session_id_length(self):
@@ -285,7 +286,7 @@ class ServerKeyExchange(Record):
         if 'ecdhe' in key_exchange_algorithm.name:
             self.curve_type = self.body[4]
             self.elliptic = True
-            for curve in NamedCurve:
+            for curve in NamedGroup:
                 if curve.value == struct.unpack('!H', self.body[5:7])[0]:
                     self.named_curve = curve
                     break

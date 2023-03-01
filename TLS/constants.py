@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class NamedCurve(Enum):
+class NamedGroup(Enum):
     sect163k1 = 1
     sect163r1 = 2
     sect163r2 = 3
@@ -123,7 +123,7 @@ class AlertDescription:
 class ExtensionType:
     # http://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
     server_name = 0
-    elliptic_curves = 10  # rfc4492
+    supported_groups = 10  # rfc7919 (renamed from elliptic_curves rfc4492)
     ec_point_formats = 11  # rfc4492
     signature_algorithms = 13  # rfc5246
     heartbeat = 15
@@ -162,7 +162,7 @@ class SignatureScheme(Enum):  # RFC8446
     ecdsa_sha1 = 0x0203
 
 
-class NamedGroup(Enum):  # rfc8446
+class NamedGroupList(Enum):  # rfc8446
     # Elliptic Curve Groups(ECDHE)
     secp256r1 = 0x0017
     secp384r1 = 0x0018

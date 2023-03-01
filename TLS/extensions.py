@@ -36,7 +36,7 @@ class EllipticCurves(Extension):
         """
         :param elliptic_curve_list: Enum containing the elliptic curves
         """
-        super(self.__class__, self).__init__(ExtensionType.elliptic_curves)
+        super(self.__class__, self).__init__(ExtensionType.supported_groups)
         self.elliptic_curve_list = elliptic_curve_list
         self.length = len(self.extension_data)
         # self.length = len(self.list_bytes) + 2  # include a length field of 2 bytes
@@ -288,7 +288,7 @@ class SupportedGroups(Extension):
         """
         :param named_group_list: Enum list containing the named groups
         """
-        super(self.__class__, self).__init__(ExtensionType.elliptic_curves)  # Renamed for TLS1.3 (RFC8244)
+        super(self.__class__, self).__init__(ExtensionType.supported_groups)  # Renamed for TLS1.3 (RFC8244)
         self.named_group_list = named_group_list
         # self.length = len(self.list_bytes) + 2
         self.length = len(self.extension_data)

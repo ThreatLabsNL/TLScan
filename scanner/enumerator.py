@@ -7,7 +7,7 @@ from TLS.tlsrecord import ClientHello, ServerHello, Certificate, ServerKeyExchan
 from TLS.tlsconnection import TLSConnection
 from TLS.ciphers import ciphers_tls, ciphers_ssl2, TLS_FALLBACK_SCSV
 from TLS.extensions import *
-from TLS.constants import NamedCurve, NamedGroup, ECPointFormat, HashAlgorithm, SignatureAlgorithm, SignatureScheme
+from TLS.constants import NamedGroupList, NamedGroup, ECPointFormat, HashAlgorithm, SignatureAlgorithm, SignatureScheme
 from TLS.constants import PskKeyExchangeMode, ContentType
 from TLS.tcp import TCP, StartTLS
 
@@ -243,7 +243,7 @@ class Enumerator(object):
         client_hello = ClientHello(version, cipher_list)
 
         # Extensions required for ECC cipher detection
-        client_hello.add_extension(EllipticCurves(NamedCurve))
+        client_hello.add_extension(EllipticCurves(NamedGroup))
         client_hello.add_extension(ECPointFormats(ECPointFormat))
         client_hello.add_extension(SignatureAlgorithms(Enumerator.get_hash_sig_list()))
         if self.sni:
@@ -256,7 +256,7 @@ class Enumerator(object):
         version_list = [versions['TLSv1_3'], versions['TLSv1_2'], versions['TLSv1_1'], versions['TLSv1_0']]
         client_hello = ClientHello(versions['TLSv1_3'], cipher_list)
 
-        client_hello.add_extension(SupportedGroups(NamedGroup))  # Extension 10
+        client_hello.add_extension(SupportedGroups(NamedGroupList))  # Extension 10
         client_hello.add_extension(ECPointFormats(ECPointFormat))
         client_hello.add_extension(SignatureAlgorithmsTLS13(SignatureScheme))
         if self.sni:
