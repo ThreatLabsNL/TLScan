@@ -234,7 +234,7 @@ class ServerHello(Record):
                 ext_length = struct.unpack('!H', self.body[cursor + 2:cursor + 4])[0]
                 extension = Extension(ext_type)
                 extension.data = self.body[cursor + 4:cursor + 4 + ext_length]
-                extensions.append(Extension(ext_type))
+                extensions.append(extension)
 
                 cursor = cursor + 4 + ext_length
                 if cursor >= (39 + self.session_id_length + 5 + self.extensions_length):

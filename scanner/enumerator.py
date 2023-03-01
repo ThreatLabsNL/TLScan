@@ -173,11 +173,11 @@ class Enumerator(object):
 
     def downgrade_protection(self, supported_protocols):
         self.print_verbose("Enumerating downgrade protection")
-        fallback = self.check_downgrade_protection(supported_protocols)
-        embedded = self.check_downgrade_protection(supported_protocols, tls1_3=True)  # Check for TLS1.3 embedded downgrade protection
+        fallback = self._check_downgrade_protection(supported_protocols)
+        embedded = self._check_downgrade_protection(supported_protocols, tls1_3=True)  # Check for TLS1.3 embedded downgrade protection
         return fallback, embedded
 
-    def check_downgrade_protection(self, supported_protocols, tls1_3=False):  # Experimental
+    def _check_downgrade_protection(self, supported_protocols, tls1_3=False):  # Experimental
         cipher_list = dict(ciphers_tls)  # Make a copy as we are going to add a cipher
         if not tls1_3:
             cipher_list[TLS_FALLBACK_SCSV[0]] = TLS_FALLBACK_SCSV[1]

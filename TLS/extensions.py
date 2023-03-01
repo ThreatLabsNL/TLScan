@@ -1,14 +1,13 @@
 import struct
 from abc import ABC, abstractmethod
 
-from TLS.constants import ExtensionType, AlertDescription
+from TLS.constants import ExtensionType
 
 
 class Extension(object):
     """
     rfc6066
     """
-    extensions_type = None
     def __init__(self, extension_type: int):
         self.extension_type = extension_type
         self.data = b''
@@ -35,11 +34,12 @@ class ECPointFormats(Extension):
     """
     RFC4492
     """
+    extension_type = ExtensionType.ec_point_formats
+
     def __init__(self, ec_point_format_list):
         """
         :param ec_point_format_list: Enum containing the ec point formats
         """
-        super(self.__class__, self).__init__(ExtensionType.ec_point_formats)
         self.ec_point_format_list = ec_point_format_list
 
     @property
@@ -62,11 +62,12 @@ class SignatureAlgorithms(Extension):
     """
     RFC5246
     """
+    extension_type = ExtensionType.signature_algorithms
+
     def __init__(self, signature_hash_list):
         """
         :param signature_hash_list: Enum containing the signature hashing algorithms ??
         """
-        super(self.__class__, self).__init__(ExtensionType.signature_algorithms)
         self.signature_hash_list = signature_hash_list
 
     @property
@@ -89,8 +90,10 @@ class SessionTicketTLS(Extension):  # Incomplete implementation
     """
     rfc4507
     """
+    extension_type = ExtensionType.session_ticket_tls
+
     def __init__(self):
-        super(self.__class__, self).__init__(ExtensionType.session_ticket_tls)
+        pass
 
     @property
     def extension_data(self):
@@ -98,8 +101,10 @@ class SessionTicketTLS(Extension):  # Incomplete implementation
 
 
 class EncryptThenMAC(Extension):  # Incomplete implementation
+    extension_type = ExtensionType.encrypt_then_mac
+
     def __init__(self):
-        super(self.__class__, self).__init__(ExtensionType.encrypt_then_mac)
+        pass
 
     @property
     def extension_data(self):
@@ -107,8 +112,9 @@ class EncryptThenMAC(Extension):  # Incomplete implementation
 
 
 class ExtendedMasterSecret(Extension):  # Incomplete implementation
+    extension_type = ExtensionType.extended_master_secret
     def __init__(self):
-        super(self.__class__, self).__init__(ExtensionType.extended_master_secret)
+        pass
 
     @property
     def extension_data(self):
@@ -116,10 +122,10 @@ class ExtendedMasterSecret(Extension):  # Incomplete implementation
 
 
 class ServerName(Extension):
-    # ToDo: allow list of server_names
+    extension_type = ExtensionType.server_name
 
     def __init__(self, server_name):
-        super(self.__class__, self).__init__(ExtensionType.server_name)
+        # ToDo: allow list of server_names
         self.server_name = server_name
 
     @property
@@ -137,8 +143,9 @@ class HeartBeat(Extension):
     """
     rfc6520
     """
+    extension_type = ExtensionType.heartbeat
+
     def __init__(self, allowed):
-        super(self.__class__, self).__init__(ExtensionType.heartbeat)
         if allowed:
             self.allowed = True
         else:
@@ -160,17 +167,17 @@ class SupportedVersions(Extension):  # ToDo test
     """
     rfc8446
     """
+    extension_type = ExtensionType.supported_versions
+
     def __init__(self, version_list: list):
         """
         :param version_list: list of TLS version tuples (order is important)
         """
-        super(self.__class__, self).__init__(ExtensionType.supported_versions)
         self.version_list = version_list
 
     @property
     def extension_data(self):  # ToDo
         v_bytes = self._version_bytes()
-
         data = [
             struct.pack('!B', len(v_bytes)),
             v_bytes,
@@ -189,11 +196,12 @@ class SignatureAlgorithmsTLS13(Extension):
     """
     RFC####
     """
+    extension_type = ExtensionType.signature_algorithms
+
     def __init__(self, signature_scheme_list):
         """
         :param signature_scheme_list: Enum containing the signature hashing algorithms
         """
-        super(self.__class__, self).__init__(ExtensionType.signature_algorithms)
         self.signature_scheme_list = signature_scheme_list
 
     @property
@@ -218,14 +226,14 @@ class SignatureAlgorithmsCert(Extension):  # ToDo test
     """
     rfc8446
     """
+    extension_type = ExtensionType.signature_algorithms_cert
+
     def __init__(self, signature_scheme_list):
-        super(self.__class__, self).__init__(ExtensionType.signature_algorithms_cert)
         self.signature_scheme_list = signature_scheme_list
 
     @property
     def extension_data(self):
         ssl_bytes = self.signature_scheme_list_bytes
-
         data = [
             struct.pack('!H', len(ssl_bytes)),
             ssl_bytes
@@ -241,12 +249,12 @@ class SignatureAlgorithmsCert(Extension):  # ToDo test
 
 
 class SupportedGroups(Extension):
+    extension_type = ExtensionType.supported_groups  # Renamed (RFC8446)
 
     def __init__(self, named_group_list):
         """
         :param named_group_list: Enum list containing the named groups
         """
-        super(self.__class__, self).__init__(ExtensionType.supported_groups)  # Renamed for TLS1.3 (RFC8244)
         self.named_group_list = named_group_list
 
     @property
@@ -267,18 +275,17 @@ class SupportedGroups(Extension):
 
 
 class PreSharedKeyExchangeModes(Extension):
+    extension_type = ExtensionType.psk_key_exchange_modes
 
     def __init__(self, kex_modes_list):
         """
         :param kex_modes_list: Enum list containing kex_modes
         """
-        super(self.__class__, self).__init__(ExtensionType.psk_key_exchange_modes)
         self.kex_modes_list = kex_modes_list
 
     @property
     def extension_data(self):
         k_bytes = self._kex_modes_bytes()
-
         data = [
             struct.pack('!B', len(k_bytes)),
             k_bytes
@@ -293,9 +300,9 @@ class PreSharedKeyExchangeModes(Extension):
 
 
 class EarlyData(Extension):
-
+    extension_type = ExtensionType.early_data
     def __init__(self):
-        super(self.__class__, self).__init__(ExtensionType.early_data)
+        pass
 
     @property
     def extension_data(self):
@@ -307,8 +314,9 @@ class EarlyData(Extension):
 
 # https://tools.ietf.org/html/rfc8446#section-4.2.8
 class KeyShare(Extension):  # ToDo complete/fix (dirty hack)
+    extension_type = ExtensionType.key_share
     def __init__(self):
-        super(self.__class__, self).__init__(ExtensionType.key_share)
+        pass
 
     @property
     def extension_data(self):
