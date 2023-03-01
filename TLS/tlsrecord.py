@@ -169,6 +169,8 @@ class ServerHello(Record):
             if "TLS_{0}".format(kex.value) in self.response_cipher.name:
                 return kex
     @property
+    def random(self):
+        return self.body[6:38]
 
     @property
     def session_id_length(self):

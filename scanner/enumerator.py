@@ -171,14 +171,20 @@ class Enumerator(object):
                     certificate.pretty_print(indent='  ')
         return certificate
 
-    def check_fallback_support(self, supported_protocols):  # Experimental
+    def downgrade_protection(self, supported_protocols):
+        self.print_verbose("Enumerating downgrade protection")
+        fallback = self.check_downgrade_protection(supported_protocols)
+        embedded = self.check_downgrade_protection(supported_protocols, tls1_3=True)  # Check for TLS1.3 embedded downgrade protection
+        return fallback, embedded
+
+    def check_downgrade_protection(self, supported_protocols, tls1_3=False):  # Experimental
         cipher_list = dict(ciphers_tls)  # Make a copy as we are going to add a cipher
-        cipher_list[TLS_FALLBACK_SCSV[0]] = TLS_FALLBACK_SCSV[1]
-        svsc_supported = False
+        if not tls1_3:
+            cipher_list[TLS_FALLBACK_SCSV[0]] = TLS_FALLBACK_SCSV[1]
+        supported = False
 
         if len(supported_protocols) >= 2:  # Else there is nothing to downgrade
             test_protocol = supported_protocols[1]  # Index 0 should be the highest supported protocol version
-
             response = self.send_client_hello(test_protocol, ciphers_tls=cipher_list)
 
             if len(response) > 0:
@@ -189,12 +195,19 @@ class Enumerator(object):
                         break
                     elif record.content_type == ContentType.alert:
                         # and record.alert_description # ToDo?
-                        svsc_supported = True
+                        supported = True
                         self.print_verbose("  [+] TLS_FALLBACK_SCSV supported (received Alert).")
                 if s_hello:
-                    self.print_verbose("  [+] TLS_FALLBACK_SCSV not supported (received ServerHello).")
-
-        return svsc_supported
+                    if not tls1_3:
+                        self.print_verbose("  [+] TLS_FALLBACK_SCSV not supported (received ServerHello).")
+                    if tls1_3:
+                        if supported_protocols[0] == 'TLSv1_3' and s_hello.random[-8:].hex() == '444f574e47524401':
+                            self.print_verbose("  [+] TLS 1.3 embedded downgrade protection (negotiating TLS 1.2).")
+                            supported = True
+                        elif supported_protocols[0] == 'TLSv1_3' and s_hello.random[-8:].hex() == '444f574e47524400':
+                            self.print_verbose("  [+] TLS 1.3 embedded downgrade protection (negotiating TLS 1.1 or below).")
+                            supported = True
+        return supported
 
     def cipher_preference(self):
         pass  # ToDo

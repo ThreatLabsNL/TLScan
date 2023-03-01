@@ -38,7 +38,7 @@ def test(target, preamble, sni_name):
         print_start()
         supported_protocols = enum.get_version_support(reversed(p_versions))
 
-    enum.check_fallback_support(supported_protocols)
+    enum.downgrade_protection(supported_protocols)
 
     for p in supported_protocols:
         enum.get_cipher_support(p)
