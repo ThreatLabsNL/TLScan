@@ -256,7 +256,7 @@ class Enumerator(object):
         client_hello = ClientHello(version, cipher_list)
 
         # Extensions required for ECC cipher detection
-        client_hello.add_extension(EllipticCurves(NamedGroup))
+        client_hello.add_extension(SupportedGroups(NamedGroup))
         client_hello.add_extension(ECPointFormats(ECPointFormat))
         client_hello.add_extension(SignatureAlgorithms(Enumerator.get_hash_sig_list()))
         if self.sni:

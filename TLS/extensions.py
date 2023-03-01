@@ -1,18 +1,21 @@
 import struct
 from abc import ABC, abstractmethod
 
-from TLS.constants import ExtensionType
+from TLS.constants import ExtensionType, AlertDescription
 
 
 class Extension(object):
     """
     rfc6066
     """
+    extensions_type = None
     def __init__(self, extension_type: int):
         self.extension_type = extension_type
-        # self.length = len(self.extension_data)  # ToDo use this and remove from inherited classes
-        self.length = 0
         self.data = b''
+
+    @property
+    def length(self):
+        return len(self.extension_data)
 
     @property
     @abstractmethod
@@ -21,42 +24,11 @@ class Extension(object):
 
     def get_bytes(self):
         extension_parts = [
-            struct.pack("!H", self.extension_type),
-            struct.pack("!H", self.length),  # ToDo: ==> len(self.extension_data)
+            self.extension_type.to_bytes(2, byteorder='big'),
+            self.length.to_bytes(2, byteorder='big'),
             self.extension_data,
         ]
         return b''.join(extension_parts)
-
-
-class EllipticCurves(Extension):
-    """
-    RFC4492
-    """
-    def __init__(self, elliptic_curve_list):
-        """
-        :param elliptic_curve_list: Enum containing the elliptic curves
-        """
-        super(self.__class__, self).__init__(ExtensionType.supported_groups)
-        self.elliptic_curve_list = elliptic_curve_list
-        self.length = len(self.extension_data)
-        # self.length = len(self.list_bytes) + 2  # include a length field of 2 bytes
-        # self.length = len(self.extension_data)  # ToDo use this instead of above
-
-    @property
-    def extension_data(self):
-        curves_bytes = self.list_bytes
-        data = [
-            struct.pack("!H", len(curves_bytes)),  # LENGTH
-            curves_bytes
-        ]
-        return b''.join(data)
-
-    @property
-    def list_bytes(self):
-        curve_bytes = b''
-        for curve in self.elliptic_curve_list:
-            curve_bytes += struct.pack('!H', curve.value)
-        return curve_bytes
 
 
 class ECPointFormats(Extension):
@@ -69,8 +41,6 @@ class ECPointFormats(Extension):
         """
         super(self.__class__, self).__init__(ExtensionType.ec_point_formats)
         self.ec_point_format_list = ec_point_format_list
-        self.length = len(self.extension_data)
-        # self.length = len(self.ec_point_format_list) + 1  # include a length field of 1 byte
 
     @property
     def extension_data(self):
@@ -98,8 +68,6 @@ class SignatureAlgorithms(Extension):
         """
         super(self.__class__, self).__init__(ExtensionType.signature_algorithms)
         self.signature_hash_list = signature_hash_list
-        self.length = len(self.extension_data)
-        # self.length = len(self.hash_signature_bytes) + 2  # include the length field
 
     @property
     def extension_data(self):
@@ -123,7 +91,6 @@ class SessionTicketTLS(Extension):  # Incomplete implementation
     """
     def __init__(self):
         super(self.__class__, self).__init__(ExtensionType.session_ticket_tls)
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
@@ -133,7 +100,6 @@ class SessionTicketTLS(Extension):  # Incomplete implementation
 class EncryptThenMAC(Extension):  # Incomplete implementation
     def __init__(self):
         super(self.__class__, self).__init__(ExtensionType.encrypt_then_mac)
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
@@ -143,7 +109,6 @@ class EncryptThenMAC(Extension):  # Incomplete implementation
 class ExtendedMasterSecret(Extension):  # Incomplete implementation
     def __init__(self):
         super(self.__class__, self).__init__(ExtensionType.extended_master_secret)
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
@@ -156,8 +121,6 @@ class ServerName(Extension):
     def __init__(self, server_name):
         super(self.__class__, self).__init__(ExtensionType.server_name)
         self.server_name = server_name
-        self.length = len(self.extension_data)
-        # self.length = len(self.server_name) + 5
 
     @property
     def extension_data(self):
@@ -180,7 +143,6 @@ class HeartBeat(Extension):
             self.allowed = True
         else:
             self.allowed = False
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
@@ -204,7 +166,6 @@ class SupportedVersions(Extension):  # ToDo test
         """
         super(self.__class__, self).__init__(ExtensionType.supported_versions)
         self.version_list = version_list
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):  # ToDo
@@ -234,7 +195,6 @@ class SignatureAlgorithmsTLS13(Extension):
         """
         super(self.__class__, self).__init__(ExtensionType.signature_algorithms)
         self.signature_scheme_list = signature_scheme_list
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
@@ -261,8 +221,6 @@ class SignatureAlgorithmsCert(Extension):  # ToDo test
     def __init__(self, signature_scheme_list):
         super(self.__class__, self).__init__(ExtensionType.signature_algorithms_cert)
         self.signature_scheme_list = signature_scheme_list
-        self.length = len(self.extension_data)
-        # self.length = len(self.signature_scheme_list_bytes) + 2
 
     @property
     def extension_data(self):
@@ -290,14 +248,12 @@ class SupportedGroups(Extension):
         """
         super(self.__class__, self).__init__(ExtensionType.supported_groups)  # Renamed for TLS1.3 (RFC8244)
         self.named_group_list = named_group_list
-        # self.length = len(self.list_bytes) + 2
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
         curves_bytes = self.list_bytes
         data = [
-            struct.pack("!H", len(curves_bytes)),  # LENGTH
+            len(curves_bytes).to_bytes(2, byteorder='big'),
             curves_bytes
         ]
         return b''.join(data)
@@ -306,7 +262,7 @@ class SupportedGroups(Extension):
     def list_bytes(self):
         named_bytes = b''
         for group in self.named_group_list:
-            named_bytes += group.value.to_bytes(2, byteorder='big')  # Inconsistent use struct
+            named_bytes += group.value.to_bytes(2, byteorder='big')
         return named_bytes
 
 
@@ -318,7 +274,6 @@ class PreSharedKeyExchangeModes(Extension):
         """
         super(self.__class__, self).__init__(ExtensionType.psk_key_exchange_modes)
         self.kex_modes_list = kex_modes_list
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
@@ -341,11 +296,9 @@ class EarlyData(Extension):
 
     def __init__(self):
         super(self.__class__, self).__init__(ExtensionType.early_data)
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
-
         data = [
             b''
         ]
@@ -356,11 +309,9 @@ class EarlyData(Extension):
 class KeyShare(Extension):  # ToDo complete/fix (dirty hack)
     def __init__(self):
         super(self.__class__, self).__init__(ExtensionType.key_share)
-        self.length = len(self.extension_data)
 
     @property
     def extension_data(self):
-
         data = [
             b'\x00\x24\x00\x1d\x00\x20\x73\x26\xb6\x86\xb5\xb1\x92\x7e\xa5\x8c\xc7\xcd\x2d'
             b'\x5a\x41\x71\x58\x21\xd9\x15\x4f\xb9\x21\xf7\xb3\x0b\x9d\x87\x90\x19\x5b\x27'
