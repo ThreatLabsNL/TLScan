@@ -1,11 +1,8 @@
 from . import Tag, UniversalTag, Element, PC
-import datetime
+from datetime import datetime
 
 
-class Decoder(object):
-
-    def __init__(self):
-        pass
+class Decoder:
 
     @staticmethod
     def _flip(string):
@@ -80,8 +77,8 @@ class Decoder(object):
             value = Decoder._bytes_to_int(value)
         elif tag.tag_value == UniversalTag.OBJECT_IDENTIFIER:
             value = Decoder.decode_oid(value)
-        elif tag.tag_value == UniversalTag.UCTTime:
-            value = Decoder.decode_date(value)
+        elif tag.tag_value == UniversalTag.UCTTime or tag.tag_value == UniversalTag.GeneralizedTime:
+            value = Decoder.decode_date(value, tag.tag_value)
         return value
 
     @staticmethod
@@ -94,15 +91,19 @@ class Decoder(object):
         return Decoder._bytes_to_int(tmp)
 
     @staticmethod
-    def decode_date(input_bytes: bytearray):  # ToDo: Finalize multiple cases
-        # http://www.obj-sys.com/asn1tutorial/node15.html
-        # 991231235959+0200
-        # 991231235959Z
-        # 9912312359Z
-        s = input_bytes.decode('utf-8')  # So much juggling!
-        year = 1900 + int(s[:2]) if int(s[:2]) > 90 else 2000 + int(s[:2])
-        date = datetime.datetime(year, int(s[2:4]), int(s[4:6]), int(s[6:8]), int(s[8:10]))
-        return date.__str__()  # Temporary, make better: like return a datetime object?
+    def decode_date(input_bytes: bytearray, useful_type):
+        s = input_bytes.decode('utf-8')
+        date = 'Unsupported type!'
+        if useful_type == UniversalTag.GeneralizedTime:
+            date = datetime.strptime(s[:14], '%Y%m%d%H%M%S')
+        if useful_type == UniversalTag.UCTTime:
+            date_string = s[:12]
+            date_string = '19' + date_string if int(s[:2]) >= 70 else '20' + date_string
+            try:
+                date = datetime.strptime(date_string, '%Y%m%d%H%M%S')
+            except ValueError:  # Looks like we don't have seconds
+                date = datetime.strptime(date_string[:12], '%Y%m%d%H%M')
+        return date.__str__()
 
     @staticmethod
     def parse_bytes(input_bytes: bytearray):  # Recursive function to process/map all bytes in the DER encoded string
