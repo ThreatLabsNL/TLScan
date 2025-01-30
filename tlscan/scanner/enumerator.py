@@ -1,17 +1,15 @@
+from .target import Target
 
+from tlscan.TLS.protocols import Protocol, versions
+from tlscan.TLS.tlsrecord import ClientHello, ServerHello, Certificate, ServerKeyExchange
+from tlscan.TLS.tlsconnection import TLSConnection
+from tlscan.TLS.ciphers import ciphers_tls, ciphers_ssl2, TLS_FALLBACK_SCSV
+from tlscan.TLS.extensions import *
+from tlscan.TLS.constants import NamedGroupList, NamedGroup, ECPointFormat, HashAlgorithm, SignatureAlgorithm, SignatureScheme
+from tlscan.TLS.constants import PskKeyExchangeMode, ContentType
+from tlscan.TLS.tcp import TCP, StartTLS
 
-from scanner import Target
-
-from TLS.protocols import Protocol, versions
-from TLS.tlsrecord import ClientHello, ServerHello, Certificate, ServerKeyExchange
-from TLS.tlsconnection import TLSConnection
-from TLS.ciphers import ciphers_tls, ciphers_ssl2, TLS_FALLBACK_SCSV
-from TLS.extensions import *
-from TLS.constants import NamedGroupList, NamedGroup, ECPointFormat, HashAlgorithm, SignatureAlgorithm, SignatureScheme
-from TLS.constants import PskKeyExchangeMode, ContentType
-from TLS.tcp import TCP, StartTLS
-
-from ASN1 import x509
+from tlscan.ASN1 import x509
 
 start_tls = {
     'smtp': [25, 587],

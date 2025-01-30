@@ -2,9 +2,9 @@ import struct
 import socket
 import errno
 
-from TLS.protocols import Protocol
-from TLS.tlsrecord import Record, ServerHello, Certificate, ServerKeyExchange, RecordHelper
-from TLS.constants import HandshakeType, HandshakeTypeSsl2, ContentType
+from .protocols import Protocol
+from .tlsrecord import Record, ServerHello, Certificate, ServerKeyExchange, RecordHelper
+from .constants import HandshakeType, HandshakeTypeSsl2, ContentType
 
 
 class TLSConnection(object):
