@@ -16,7 +16,7 @@ build-backend = "setuptools.build_meta" # If not defined, then legacy behavior c
 [project]
 
 name = "tlscan"
-version = "3.0.1"
+version = "0.0.1"
 description = "Python based TLS enumeration scanner"
 readme = "README.md"
 requires-python = ">=3.9"
