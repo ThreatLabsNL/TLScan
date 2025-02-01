@@ -1,20 +1,8 @@
-# Guide (user-friendly):
-# https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
-
-# Specification (technical, formal):
-# https://packaging.python.org/en/latest/specifications/pyproject-toml/
-
-
-# Choosing a build backend:
-# https://packaging.python.org/en/latest/tutorials/packaging-projects/#choosing-a-build-backend
 [build-system]
-# A list of packages that are needed to build your package:
-requires = ["setuptools"] # REQUIRED if [build-system] table is used
-# The name of the Python object that frontends will use to perform the build:
-build-backend = "setuptools.build_meta" # If not defined, then legacy behavior can happen.
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
 [project]
-
 name = "tlscan"
 version = "0.0.1"
 description = "Python based TLS enumeration scanner"
@@ -31,12 +19,9 @@ maintainers = [
 
 classifiers = [
   "Development Status :: 5 - Production/Stable",
-
   "Intended Audience :: Information Technology",
   # "Topic :: Security testing :: Build Tools",
-
   "License :: OSI Approved :: MIT License",
-
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
@@ -50,9 +35,6 @@ classifiers = [
 "Homepage" = "https://github.com/ThreatLabsNL/TLScan"
 "Bug Reports" = "https://github.com/ThreatLabsNL/TLScan/issues"
 "Source" = "https://github.com/ThreatLabsNL/TLScan/"
-
-[tool.setuptools.packages.find]
-where = ["tlscan"]
 
 [project.scripts]
 tlscan = "tlscan:main"
