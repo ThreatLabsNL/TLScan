@@ -2,7 +2,7 @@ import re
 import socket
 
 
-class Target(object):
+class Target:
 
     def __init__(self, host, port):  # ToDo port: int
         # ToDo protocol (TCP/UDP)
@@ -12,15 +12,13 @@ class Target(object):
 
 class TargetParser:
 
-    ipv6_notation_regex = '^\[(.*?)\]:+([0-9]{1,5})$'  # RFC3986 (section 3.2.2)
+    ipv6_notation_regex = '^[(.*?)]:+([0-9]{1,5})$'  # RFC3986 (section 3.2.2)
     ipv4_hostname_notation_regex = '^(.*)[:]+([0-9]{1,5})$'
     host = None
     port = None
 
     def __init__(self, input_string):
         self.string = input_string
-        # self.host = None
-        # self.port = None
 
         if self.is_ipv6_notation:
             self._parse_ipv6_notation()
@@ -45,7 +43,7 @@ class TargetParser:
             return False
         if hostname[-1] == ".":
             hostname = hostname[:-1]
-        allowed = re.compile('(?!-)[A-Z\d-]{1,63}(?<!-)$', re.IGNORECASE)
+        allowed = re.compile('(?!-)[A-Zd-]{1,63}(?<!-)$', re.IGNORECASE)
         return all(allowed.match(x) for x in hostname.split("."))
 
     @staticmethod

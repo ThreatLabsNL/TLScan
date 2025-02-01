@@ -1,7 +1,7 @@
 import struct
 from abc import ABC, abstractmethod
 
-from TLS.constants import ExtensionType
+from tlscan.TLS.constants import ExtensionType
 
 
 class Extension(object):

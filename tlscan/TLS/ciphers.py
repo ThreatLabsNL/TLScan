@@ -1,7 +1,7 @@
 # Using IANA registered names
 
 import re
-from TLS.protocols import Protocol
+from .protocols import Protocol
 
 
 ''' TLS 1.3 ciphers:

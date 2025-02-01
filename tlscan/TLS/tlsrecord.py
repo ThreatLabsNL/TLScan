@@ -2,11 +2,11 @@ import struct
 import time
 import os
 
-from TLS.protocols import Protocol, versions
-from TLS.extensions import Extension
-from TLS.ciphers import Cipher, ciphers_ssl2, ciphers_tls
-from TLS.constants import HandshakeType, HandshakeTypeSsl2, ContentType, CompressionMethod, NamedGroup
-from TLS.constants import KeyExchangeAlgorithm
+from .protocols import Protocol, versions
+from .extensions import Extension
+from .ciphers import Cipher, ciphers_ssl2, ciphers_tls
+from .constants import HandshakeType, HandshakeTypeSsl2, ContentType, CompressionMethod, NamedGroup
+from .constants import KeyExchangeAlgorithm
 
 
 class Record(object):

@@ -1,8 +1,7 @@
 # TLScan
+TLS scanner to enumerate TLS/SSL protocol version and cipher-suite support that does not rely on external dependencies (e.g. OpenSSL).
 
-TLS scanner to enumerate TLS/SSL protocol version and cipher-suite support.
-
-Created in order not to have to rely on tools that have external dependancies (e.g. OpenSSL).
-
-TLScan3 only works with Python3
-
+# Installation
+* Using pip: `pip install tlscan`
+* Using pipx: `pipx install tlscan`
+* Clone the source repository `git clone https://github.com/ThreatLabsNL/TLScan` and run `pip install .` from the project directory.
