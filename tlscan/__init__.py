@@ -53,7 +53,7 @@ def main():
     parser = ArgumentParser(description='Scanner to enumerate encryption protocol support', prog='TLScan3')
     parser.add_argument('target', type=str, help="specify target as: host:port e.g. www.example.com:443 or "
                                                  "[::1]:443 for IPv6")
-    parser.add_argument('--version', action='version', version='%(prog)s 0.0.1')
+    parser.add_argument('--version', action='version', version='%(prog)s 0.0.2')
     p_group = parser.add_mutually_exclusive_group()
     for key, value in start_tls.items():
         p_group.add_argument("--{}".format(key), dest=key, action='store_true',
