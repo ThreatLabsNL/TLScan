@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tlscan"
-version = "0.0.2"
+version = "0.0.3"
 description = "Python based TLS enumeration scanner"
 readme = "README.md"
 requires-python = ">=3.9"
