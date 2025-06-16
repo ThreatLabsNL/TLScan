@@ -369,6 +369,21 @@ ciphers_tls = {
     b'\xC0\xB1': 'TLS_ECCPWD_WITH_AES_256_GCM_SHA384',
     b'\xC0\xB2': 'TLS_ECCPWD_WITH_AES_128_CCM_SHA256',
     b'\xC0\xB3': 'TLS_ECCPWD_WITH_AES_256_CCM_SHA384',
+    # TLS 1.3 Authentication and Integrity-Only Cipher Suites
+    # RFC9150
+    b'\xC0\xB4': 'TLS_SHA256_SHA256',
+    b'\xC0\xB5': 'TLS_SHA384_SHA384',
+    # GOST Cipher Suites for Transport Layer Security (TLS) Protocol Version 1.2
+    # RFC9189
+    b'\xC1\x00': 'TLS_GOSTR341112_256_WITH_KUZNYECHIK_CTR_OMAC',
+    b'\xC1\x01': 'TLS_GOSTR341112_256_WITH_MAGMA_CTR_OMAC',
+    b'\xC1\x02': 'TLS_GOSTR341112_256_WITH_28147_CNT_IMIT',
+    # GOST Cipher Suites for Transport Layer Security (TLS) Protocol Version 1.3
+    # RFC9367
+    b'\xC1\x03': 'TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_L',
+    b'\xC1\x04': 'TLS_GOSTR341112_256_WITH_MAGMA_MGM_L',
+    b'\xC1\x05': 'TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_S',
+    b'\xC1\x06': 'TLS_GOSTR341112_256_WITH_MAGMA_MGM_S',
     # draft-mavrogiannopoulos-chacha-tls-01
     # RFC7905
     b'\xCC\x12': 'TLS_RSA_WITH_CHACHA20_POLY1305_NON_IANA',
